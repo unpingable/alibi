@@ -58,6 +58,7 @@ alibi check silent-killer memrot  # several
 alibi check --json                # stable machine-readable receipt
 alibi check --verbose             # evidence detail
 alibi explain kernel-scream       # what an accusation means and cannot mean
+alibi --version                   # implementation version
 ```
 
 ```text
@@ -75,7 +76,26 @@ Exit codes: `0` innocence established · `1` degraded · `2` unknown · `64` usa
 
 Some evidence (kernel log, EDAC) needs sufficient privilege on many systems.
 Run unprivileged and Alibi does not guess — the affected accusations come back
-`UNKNOWN` with the reason on the receipt.
+`UNKNOWN` with the reason on the receipt. See
+[docs/envelope.md](docs/envelope.md) for exactly what improves with privilege
+and what remains meaningful without it.
+
+## The receipt contract
+
+`--json` receipts carry `"receipt_version": 1` and the Alibi `version` that
+produced them. The format is guarded by a golden contract test
+(`tests/golden/receipt_v1.json`): field removals, renames, and reorderings
+fail the build. This is not a long-term compatibility promise — V0 contract
+changes are intentional, not accidental. Sanitized, fictional example receipts
+live in [examples/](examples/); use those in documentation and bug reports.
+
+## Receipt sensitivity
+
+Read-only does not mean harmless to share. A receipt is host evidence —
+hostname, interfaces, mountpoints, filesystem fill levels, kernel-log
+excerpts, timings. Treat receipts like `dmesg` output: do not paste them into
+public channels or upload them to third-party tooling without review. See
+[docs/envelope.md](docs/envelope.md#receipt-sensitivity).
 
 ## What Alibi is not
 
@@ -86,9 +106,19 @@ Deferred on purpose: SSH/fleet interrogation, persistent history, alerting
 integrations, Prometheus/OpenTelemetry export, active network probes,
 Windows/macOS, remote attestation.
 
+One non-goal stands above the others: **`CLEAR` is bounded exoneration, not
+health attestation.** Alibi will never grow a mode, flag, or summary that
+claims a machine is universally healthy.
+
 ## Design
 
 See [docs/design.md](docs/design.md): verdict algebra, precise MTTI semantics,
 per-class evidence models, and the category errors Alibi refuses to commit
 (e.g. collection failure ≠ innocence; cumulative counters are not trends;
-a successful ping proves nothing).
+a successful ping proves nothing). See [docs/envelope.md](docs/envelope.md)
+for the operator-facing interrogation envelope: platform assumptions,
+privilege behavior, what `UNKNOWN` means, and receipt sensitivity.
+
+## License
+
+Licensed under Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

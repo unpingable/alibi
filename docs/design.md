@@ -209,11 +209,19 @@ alibi check [flags] [accusation...]   # default: all four, registry order
 alibi check --json                    # stable machine-readable receipt (stdout)
 alibi check --verbose                 # human receipt with evidence detail
 alibi explain <accusation>            # meaning, evidence, verdict semantics, limits
+alibi --version                       # implementation version (CARGO_PKG_VERSION)
 ```
 
 Human default is one line per accusation plus an overall verdict line, per the
 project seed. The JSON receipt is the stable interface: additive changes only,
-field removals/renames are breaking. Top level: `tool`, `version`, `host`,
+field removals/renames are breaking. Every receipt declares
+`"receipt_version": 1` (an integer bumped on any breaking change; additive
+changes may keep the version) and the producing `version`. The serialization
+is pinned by a golden contract test (`tests/golden/receipt_v1.json`); a diff
+against the golden means the contract changed and must be regenerated
+deliberately, never casually. This is intentionality, not a long-term
+compatibility promise. Top level: `tool`, `version`, `receipt_version`,
+`host`,
 `started_at` (RFC 3339 UTC), `elapsed_ms`, `mtti_ms`, `innocence_established`,
 `verdict`, `findings[]` (accusation, verdict, summary, indications, evidence,
 skipped, time_to_verdict_ms), `envelope` (boot_time, sources[] with status /
