@@ -1,4 +1,4 @@
-use crate::receipt::{Receipt, TOOL, VERSION};
+use crate::receipt::{Receipt, RECEIPT_VERSION, TOOL, VERSION};
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -94,8 +94,14 @@ pub fn receipt_json(receipt: &Receipt) -> Json {
         .iter()
         .map(|f| {
             Json::Object(vec![
-                ("accusation".to_string(), Json::Str(f.accusation.to_string())),
-                ("verdict".to_string(), Json::Str(f.verdict.as_str().to_string())),
+                (
+                    "accusation".to_string(),
+                    Json::Str(f.accusation.to_string()),
+                ),
+                (
+                    "verdict".to_string(),
+                    Json::Str(f.verdict.as_str().to_string()),
+                ),
                 ("summary".to_string(), Json::Str(f.summary.clone())),
                 ("indications".to_string(), strings(&f.indications)),
                 ("evidence".to_string(), strings(&f.evidence)),
@@ -114,7 +120,10 @@ pub fn receipt_json(receipt: &Receipt) -> Json {
         .map(|s| {
             let mut obj = vec![
                 ("name".to_string(), Json::Str(s.name.to_string())),
-                ("status".to_string(), Json::Str(s.status.as_str().to_string())),
+                (
+                    "status".to_string(),
+                    Json::Str(s.status.as_str().to_string()),
+                ),
             ];
             if let Some(method) = &s.method {
                 obj.push(("method".to_string(), Json::Str(method.clone())));
@@ -135,6 +144,7 @@ pub fn receipt_json(receipt: &Receipt) -> Json {
     Json::Object(vec![
         ("tool".to_string(), Json::Str(TOOL.to_string())),
         ("version".to_string(), Json::Str(VERSION.to_string())),
+        ("receipt_version".to_string(), Json::Num(RECEIPT_VERSION)),
         ("host".to_string(), Json::Str(receipt.host.clone())),
         (
             "started_at".to_string(),
@@ -245,6 +255,7 @@ mod tests {
         for key in [
             "\"tool\"",
             "\"version\"",
+            "\"receipt_version\"",
             "\"host\"",
             "\"started_at\"",
             "\"elapsed_ms\"",

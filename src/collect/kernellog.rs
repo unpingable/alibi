@@ -19,7 +19,11 @@ pub fn collect() -> Source<KernelLog> {
             start.elapsed(),
         ),
         Err(dmesg_err) => {
-            match run_command("journalctl", &["-k", "-b", "--no-pager"], Duration::from_secs(5)) {
+            match run_command(
+                "journalctl",
+                &["-k", "-b", "--no-pager"],
+                Duration::from_secs(5),
+            ) {
                 Ok(out) => {
                     let method = "journalctl -k -b --no-pager";
                     Source::ok(

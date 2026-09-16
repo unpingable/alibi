@@ -1,0 +1,9 @@
+ALIBI host=ops-node-17 elapsed=2.41s mtti=2.41s
+
+CLEAR     kernel-scream        no serious kernel/hardware events found
+CLEAR     silent-killer        mounted filesystems writable; no journal/fs errors found
+UNKNOWN   memrot               EDAC unavailable: platform exposes no EDAC (VM, or driver not loaded); no kernel-reported memory errors — hardware memory integrity not established
+DEGRADED  network-choke-point  eno1: RX errors +7 in 2s window
+
+verdict: DEGRADED (innocence not established)
+note: 1 check(s) skipped or unavailable; --verbose for detail

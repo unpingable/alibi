@@ -1,0 +1,119 @@
+{
+  "tool": "alibi",
+  "version": "0.1.0",
+  "receipt_version": 1,
+  "host": "ops-node-17",
+  "started_at": "2026-09-10T14:03:11Z",
+  "elapsed_ms": 2412,
+  "mtti_ms": 2410,
+  "innocence_established": false,
+  "verdict": "DEGRADED",
+  "findings": [
+    {
+      "accusation": "kernel-scream",
+      "verdict": "CLEAR",
+      "summary": "no serious kernel/hardware events found",
+      "indications": [],
+      "evidence": [
+        "kernel log acquired via dmesg (1187 lines scanned)"
+      ],
+      "skipped": [],
+      "time_to_verdict_ms": 2405
+    },
+    {
+      "accusation": "silent-killer",
+      "verdict": "CLEAR",
+      "summary": "mounted filesystems writable; no journal/fs errors found",
+      "indications": [],
+      "evidence": [
+        "1 read-only bind mount(s) on otherwise-writable filesystems (treated as intentional)",
+        "4 material mounts read-write",
+        "min free space observed: 23% (/var)",
+        "min free inodes observed: 91% (/)"
+      ],
+      "skipped": [],
+      "time_to_verdict_ms": 2407
+    },
+    {
+      "accusation": "memrot",
+      "verdict": "UNKNOWN",
+      "summary": "EDAC unavailable: platform exposes no EDAC (VM, or driver not loaded); no kernel-reported memory errors — hardware memory integrity not established",
+      "indications": [],
+      "evidence": [],
+      "skipped": [
+        "EDAC unavailable: platform exposes no EDAC (VM, or driver not loaded)"
+      ],
+      "time_to_verdict_ms": 2408
+    },
+    {
+      "accusation": "network-choke-point",
+      "verdict": "DEGRADED",
+      "summary": "eno1: RX errors +7 in 2s window",
+      "indications": [
+        "eno1: RX errors +7 in 2s window"
+      ],
+      "evidence": [
+        "eno1: operstate=up carrier physical; +137 rx/+98 tx packets in 2s window",
+        "eno2: operstate=down no-carrier physical; +0 rx/+0 tx packets in 2s window",
+        "default route present (IPv4)",
+        "conntrack table 412/262144 (0% of max)"
+      ],
+      "skipped": [],
+      "time_to_verdict_ms": 2410
+    }
+  ],
+  "envelope": {
+    "boot_time": "2026-08-21T09:41:02Z",
+    "sources": [
+      {
+        "name": "kernel-log",
+        "status": "ok",
+        "method": "dmesg",
+        "elapsed_ms": 9
+      },
+      {
+        "name": "mounts",
+        "status": "ok",
+        "method": "/proc/self/mounts",
+        "detail": "21 non-material mounts excluded",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "fs-usage",
+        "status": "ok",
+        "method": "df -P -B1 / df -P -i per material filesystem",
+        "elapsed_ms": 52
+      },
+      {
+        "name": "edac",
+        "status": "unsupported",
+        "detail": "platform exposes no EDAC (VM, or driver not loaded)",
+        "elapsed_ms": 0
+      },
+      {
+        "name": "net",
+        "status": "ok",
+        "method": "/sys/class/net",
+        "elapsed_ms": 2006
+      },
+      {
+        "name": "routes",
+        "status": "ok",
+        "method": "/proc/net/route; /proc/net/ipv6_route",
+        "elapsed_ms": 0
+      },
+      {
+        "name": "conntrack",
+        "status": "ok",
+        "method": "/proc/sys/net/netfilter",
+        "elapsed_ms": 0
+      }
+    ]
+  },
+  "semantics": {
+    "clear": "all required evidence sources were collected and no collected evidence indicates the failure class",
+    "degraded": "collected evidence contains at least one positive indication of the failure class",
+    "unknown": "no indication was found but at least one required evidence source was unavailable, unsupported, inaccessible, or malformed; innocence was not established",
+    "mtti": "duration from interrogation start until every requested accusation reached a terminal verdict; unknown ends the clock but does not establish innocence"
+  }
+}

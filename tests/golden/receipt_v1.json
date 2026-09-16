@@ -1,0 +1,109 @@
+{
+  "tool": "alibi",
+  "version": "0.1.0",
+  "receipt_version": 1,
+  "host": "golden-host",
+  "started_at": "2025-09-04T15:33:20Z",
+  "elapsed_ms": 2047,
+  "mtti_ms": 2046,
+  "innocence_established": false,
+  "verdict": "DEGRADED",
+  "findings": [
+    {
+      "accusation": "kernel-scream",
+      "verdict": "CLEAR",
+      "summary": "no serious kernel/hardware events found",
+      "indications": [],
+      "evidence": [
+        "kernel log acquired via dmesg (842 lines scanned)"
+      ],
+      "skipped": [],
+      "time_to_verdict_ms": 2043
+    },
+    {
+      "accusation": "silent-killer",
+      "verdict": "DEGRADED",
+      "summary": "/data (xfs, /dev/sdb1) mounted read-only; if intentional, treat as expected",
+      "indications": [
+        "/data (xfs, /dev/sdb1) mounted read-only; if intentional, treat as expected"
+      ],
+      "evidence": [],
+      "skipped": [],
+      "time_to_verdict_ms": 2044
+    },
+    {
+      "accusation": "memrot",
+      "verdict": "UNKNOWN",
+      "summary": "EDAC unavailable: platform exposes no EDAC (VM, or driver not loaded); no kernel-reported memory errors — hardware memory integrity not established",
+      "indications": [],
+      "evidence": [],
+      "skipped": [
+        "EDAC unavailable: platform exposes no EDAC (VM, or driver not loaded)"
+      ],
+      "time_to_verdict_ms": 2045
+    },
+    {
+      "accusation": "network-choke-point",
+      "verdict": "NOT_APPLICABLE",
+      "summary": "no non-loopback interfaces on this host",
+      "indications": [],
+      "evidence": [],
+      "skipped": [],
+      "time_to_verdict_ms": 2046
+    }
+  ],
+  "envelope": {
+    "boot_time": "2025-09-03T11:46:40Z",
+    "sources": [
+      {
+        "name": "kernel-log",
+        "status": "ok",
+        "method": "dmesg",
+        "elapsed_ms": 14
+      },
+      {
+        "name": "mounts",
+        "status": "ok",
+        "method": "/proc/self/mounts",
+        "detail": "17 non-material mounts excluded",
+        "elapsed_ms": 1
+      },
+      {
+        "name": "fs-usage",
+        "status": "ok",
+        "method": "df -P -B1 / df -P -i per material filesystem",
+        "elapsed_ms": 41
+      },
+      {
+        "name": "edac",
+        "status": "unsupported",
+        "detail": "platform exposes no EDAC (VM, or driver not loaded)",
+        "elapsed_ms": 0
+      },
+      {
+        "name": "net",
+        "status": "ok",
+        "method": "/sys/class/net",
+        "elapsed_ms": 2003
+      },
+      {
+        "name": "routes",
+        "status": "unavailable",
+        "detail": "/proc/net/route: Permission denied (os error 13)",
+        "elapsed_ms": 0
+      },
+      {
+        "name": "conntrack",
+        "status": "malformed",
+        "detail": "/proc/sys/net/netfilter/nf_conntrack_max: not a number",
+        "elapsed_ms": 0
+      }
+    ]
+  },
+  "semantics": {
+    "clear": "all required evidence sources were collected and no collected evidence indicates the failure class",
+    "degraded": "collected evidence contains at least one positive indication of the failure class",
+    "unknown": "no indication was found but at least one required evidence source was unavailable, unsupported, inaccessible, or malformed; innocence was not established",
+    "mtti": "duration from interrogation start until every requested accusation reached a terminal verdict; unknown ends the clock but does not establish innocence"
+  }
+}

@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn degraded_on_aer_line() {
         let facts = facts_with_log(vec![
-            "pcieport 0000:00:1c.0: AER: PCIe Bus Error: severity=Uncorrected".to_string()
+            "pcieport 0000:00:1c.0: AER: PCIe Bus Error: severity=Uncorrected".to_string(),
         ]);
         let finding = KernelScream.evaluate(&facts);
         assert_eq!(finding.verdict, Verdict::Degraded);
@@ -116,7 +116,7 @@ mod tests {
     #[test]
     fn degraded_on_hardware_error_line() {
         let facts = facts_with_log(vec![
-            "mce: [Hardware Error]: CPU 0: Machine Check Exception".to_string()
+            "mce: [Hardware Error]: CPU 0: Machine Check Exception".to_string(),
         ]);
         let finding = KernelScream.evaluate(&facts);
         assert_eq!(finding.verdict, Verdict::Degraded);

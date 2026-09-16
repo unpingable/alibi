@@ -157,15 +157,30 @@ pub fn run_command(program: &str, args: &[&str], timeout: Duration) -> Result<St
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
-                let out = out_reader.join().ok().and_then(|r| r.ok()).unwrap_or_default();
-                let err = err_reader.join().ok().and_then(|r| r.ok()).unwrap_or_default();
+                let out = out_reader
+                    .join()
+                    .ok()
+                    .and_then(|r| r.ok())
+                    .unwrap_or_default();
+                let err = err_reader
+                    .join()
+                    .ok()
+                    .and_then(|r| r.ok())
+                    .unwrap_or_default();
                 if status.success() {
                     return Ok(String::from_utf8_lossy(&out).into_owned());
                 }
                 let err = String::from_utf8_lossy(&err);
                 let trimmed = err.trim();
-                let stripped = trimmed.strip_prefix(program).and_then(|r| r.strip_prefix(':'));
-                let detail: String = stripped.unwrap_or(trimmed).trim_start().chars().take(200).collect();
+                let stripped = trimmed
+                    .strip_prefix(program)
+                    .and_then(|r| r.strip_prefix(':'));
+                let detail: String = stripped
+                    .unwrap_or(trimmed)
+                    .trim_start()
+                    .chars()
+                    .take(200)
+                    .collect();
                 if detail.is_empty() {
                     return Err(format!("{}: exited with {}", program, status));
                 }
@@ -177,7 +192,11 @@ pub fn run_command(program: &str, args: &[&str], timeout: Duration) -> Result<St
                     let _ = child.wait();
                     let _ = out_reader.join();
                     let _ = err_reader.join();
-                    return Err(format!("{}: timed out after {}s", program, timeout.as_secs()));
+                    return Err(format!(
+                        "{}: timed out after {}s",
+                        program,
+                        timeout.as_secs()
+                    ));
                 }
                 thread::sleep(Duration::from_millis(25));
             }

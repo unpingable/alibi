@@ -169,10 +169,9 @@ Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
             "Filesystem 1B-blocks Used Available Capacity Mounted on\ncomplete junk\n"
         )
         .is_err());
-        assert!(parse_df_bytes(
-            "Filesystem 1B-blocks Used Available Capacity Mounted on\n"
-        )
-        .is_err());
+        assert!(
+            parse_df_bytes("Filesystem 1B-blocks Used Available Capacity Mounted on\n").is_err()
+        );
         assert!(parse_df_inodes("garbage\n").is_err());
     }
 
@@ -199,14 +198,8 @@ Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
         ];
         let filesystems = dedupe_filesystems(&mounts);
         assert_eq!(filesystems.len(), 2);
-        assert_eq!(
-            filesystems[0],
-            ("/dev/sda1".to_string(), "/".to_string())
-        );
-        assert_eq!(
-            filesystems[1],
-            ("tmpfs".to_string(), "/tmp".to_string())
-        );
+        assert_eq!(filesystems[0], ("/dev/sda1".to_string(), "/".to_string()));
+        assert_eq!(filesystems[1], ("tmpfs".to_string(), "/tmp".to_string()));
     }
 
     #[test]

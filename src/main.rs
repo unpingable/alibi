@@ -1,9 +1,4 @@
-mod collect;
-mod eval;
-mod explain;
-mod receipt;
-mod timeutil;
-
+use alibi::{collect, eval, explain, receipt};
 use std::process::ExitCode;
 use std::time::{Instant, SystemTime};
 
@@ -15,6 +10,7 @@ alibi — read-only Linux host interrogation
 usage:
   alibi check [--json] [--verbose] [accusation...]
   alibi explain <accusation>
+  alibi --version
 
 accusations: kernel-scream, silent-killer, memrot, network-choke-point
 
@@ -26,6 +22,10 @@ fn main() -> ExitCode {
     match args.first().map(String::as_str) {
         Some("check") => cmd_check(&args[1..]),
         Some("explain") => cmd_explain(&args[1..]),
+        Some("--version") | Some("-V") => {
+            println!("alibi {}", env!("CARGO_PKG_VERSION"));
+            ExitCode::SUCCESS
+        }
         Some("--help") | Some("-h") => {
             print!("{}", USAGE);
             ExitCode::SUCCESS

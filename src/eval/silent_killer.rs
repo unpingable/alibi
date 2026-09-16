@@ -198,10 +198,7 @@ mod tests {
         }
         let finding = SilentKiller.evaluate(&facts);
         assert_eq!(finding.verdict, Verdict::Clear);
-        assert!(!finding
-            .indications
-            .iter()
-            .any(|i| i.contains("/snap/x")));
+        assert!(!finding.indications.iter().any(|i| i.contains("/snap/x")));
         assert!(finding
             .evidence
             .iter()

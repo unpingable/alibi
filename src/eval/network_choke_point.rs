@@ -166,7 +166,11 @@ fn counter_delta(first: Option<u64>, second: Option<u64>) -> u64 {
 }
 
 fn iface_evidence(iface: &Iface, window_secs: u64) -> String {
-    let kind = if iface.is_virtual { "virtual" } else { "physical" };
+    let kind = if iface.is_virtual {
+        "virtual"
+    } else {
+        "physical"
+    };
     let carrier = match iface.carrier {
         Some(true) => "carrier",
         Some(false) => "no-carrier",
@@ -195,10 +199,7 @@ mod tests {
         }
         let finding = NetworkChokePoint.evaluate(&facts);
         assert_eq!(finding.verdict, Verdict::NotApplicable);
-        assert_eq!(
-            finding.summary,
-            "no non-loopback interfaces on this host"
-        );
+        assert_eq!(finding.summary, "no non-loopback interfaces on this host");
     }
 
     #[test]

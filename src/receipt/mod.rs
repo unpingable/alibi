@@ -7,6 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub const TOOL: &str = "alibi";
 pub const VERSION: &str = "0.1.0";
+pub const RECEIPT_VERSION: u64 = 1;
 
 #[derive(Debug)]
 pub struct SourceRecord {
