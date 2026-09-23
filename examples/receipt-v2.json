@@ -1,0 +1,195 @@
+{
+  "tool": "alibi",
+  "version": "0.1.0",
+  "receipt_version": 2,
+  "host": "ops-node-17",
+  "started_at": "2026-09-10T14:03:11Z",
+  "decision_latency_ms": 2078,
+  "mtti_ms": null,
+  "interrogation_complete_ms": 2080,
+  "innocence_established": false,
+  "verdict": "DEGRADED",
+  "findings": [
+    {
+      "accusation": "kernel-scream",
+      "verdict": "CLEAR",
+      "summary": "no serious kernel/hardware events found",
+      "indications": [],
+      "evidence": [
+        "kernel log acquired via dmesg (1187 lines scanned)"
+      ],
+      "skipped": [],
+      "sources": [
+        {
+          "name": "kernel-log",
+          "role": "required"
+        }
+      ],
+      "decided_at_ms": 2075,
+      "innocence_at_ms": 2075
+    },
+    {
+      "accusation": "silent-killer",
+      "verdict": "DEGRADED",
+      "summary": "/var (/dev/mapper/vg-var) critically low on space (3% free)",
+      "indications": [
+        "/var (/dev/mapper/vg-var) critically low on space (3% free)"
+      ],
+      "evidence": [
+        "1 read-only bind mount(s) on otherwise-writable filesystems (treated as intentional)"
+      ],
+      "skipped": [
+        "required evidence incomplete: fs-usage: /srv byte usage: df exited with status 1"
+      ],
+      "sources": [
+        {
+          "name": "mounts",
+          "role": "required"
+        },
+        {
+          "name": "fs-usage",
+          "role": "required"
+        },
+        {
+          "name": "kernel-log",
+          "role": "required"
+        }
+      ],
+      "decided_at_ms": 2076,
+      "innocence_at_ms": null
+    },
+    {
+      "accusation": "memrot",
+      "verdict": "UNKNOWN",
+      "summary": "EDAC unavailable: platform exposes no EDAC (VM, or driver not loaded); no kernel-reported memory errors — hardware memory integrity not established",
+      "indications": [],
+      "evidence": [],
+      "skipped": [
+        "EDAC unavailable: platform exposes no EDAC (VM, or driver not loaded)"
+      ],
+      "sources": [
+        {
+          "name": "edac",
+          "role": "required"
+        },
+        {
+          "name": "kernel-log",
+          "role": "required"
+        }
+      ],
+      "decided_at_ms": 2077,
+      "innocence_at_ms": null
+    },
+    {
+      "accusation": "network-choke-point",
+      "verdict": "DEGRADED",
+      "summary": "eno1: RX errors +7 in 2s window",
+      "indications": [
+        "eno1: RX errors +7 in 2s window"
+      ],
+      "evidence": [
+        "eno1: operstate=up carrier physical; rx packets +137, tx packets +98 in 2s window",
+        "eno2: operstate=down no-carrier physical; rx packets +0, tx packets +0 in 2s window",
+        "default route present (IPv4)",
+        "conntrack table 412/262144 (0% of max)"
+      ],
+      "skipped": [],
+      "sources": [
+        {
+          "name": "net",
+          "role": "required"
+        },
+        {
+          "name": "routes",
+          "role": "required"
+        },
+        {
+          "name": "conntrack",
+          "role": "supporting"
+        },
+        {
+          "name": "kernel-log",
+          "role": "supporting"
+        }
+      ],
+      "decided_at_ms": 2078,
+      "innocence_at_ms": null
+    }
+  ],
+  "envelope": {
+    "boot_time": "2026-08-21T09:41:02Z",
+    "sources": [
+      {
+        "name": "kernel-log",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "dmesg",
+        "elapsed_ms": 9,
+        "completed_at_ms": 64
+      },
+      {
+        "name": "mounts",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "/proc/self/mounts",
+        "detail": "21 non-material mounts excluded",
+        "elapsed_ms": 1,
+        "completed_at_ms": 2
+      },
+      {
+        "name": "fs-usage",
+        "status": "unavailable",
+        "completeness": "partial",
+        "method": "df -P -B1 / df -P -i per material filesystem",
+        "detail": "/srv byte usage: df exited with status 1",
+        "elapsed_ms": 52,
+        "completed_at_ms": 55
+      },
+      {
+        "name": "edac",
+        "status": "unsupported",
+        "completeness": "none",
+        "detail": "platform exposes no EDAC (VM, or driver not loaded)",
+        "elapsed_ms": 0,
+        "completed_at_ms": 65
+      },
+      {
+        "name": "net",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "/sys/class/net",
+        "elapsed_ms": 2006,
+        "completed_at_ms": 2072,
+        "window": {
+          "started_at_ms": 66,
+          "ended_at_ms": 2072,
+          "duration_ms": 2006
+        }
+      },
+      {
+        "name": "routes",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "/proc/net/route; /proc/net/ipv6_route",
+        "elapsed_ms": 0,
+        "completed_at_ms": 2073
+      },
+      {
+        "name": "conntrack",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "/proc/sys/net/netfilter",
+        "elapsed_ms": 0,
+        "completed_at_ms": 2074
+      }
+    ]
+  },
+  "semantics": {
+    "clear": "all required evidence sources were complete and no collected evidence indicates the failure class",
+    "degraded": "collected evidence contains at least one positive indication of the failure class, including retained evidence from a partial source",
+    "unknown": "no indication was found but at least one required evidence source was unavailable, unsupported, inaccessible, malformed, or incomplete; innocence was not established",
+    "decision_latency": "duration from interrogation start until every requested accusation reached a terminal verdict",
+    "mtti": "duration from interrogation start until every requested accusation was cleared or established semantically void; null when any requested accusation is degraded or unknown",
+    "interrogation_complete": "duration from interrogation start until receipt construction began after collection and evaluation completed"
+  }
+}

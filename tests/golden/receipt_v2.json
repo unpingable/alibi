@@ -1,0 +1,171 @@
+{
+  "tool": "alibi",
+  "version": "0.1.0",
+  "receipt_version": 2,
+  "host": "golden-host",
+  "started_at": "2025-09-04T15:33:20Z",
+  "decision_latency_ms": 2063,
+  "mtti_ms": null,
+  "interrogation_complete_ms": 2064,
+  "innocence_established": false,
+  "verdict": "DEGRADED",
+  "findings": [
+    {
+      "accusation": "kernel-scream",
+      "verdict": "CLEAR",
+      "summary": "no serious kernel/hardware events found",
+      "indications": [],
+      "evidence": [
+        "kernel log acquired via dmesg (842 lines scanned)"
+      ],
+      "skipped": [],
+      "sources": [
+        {
+          "name": "kernel-log",
+          "role": "required"
+        }
+      ],
+      "decided_at_ms": 2060,
+      "innocence_at_ms": 2060
+    },
+    {
+      "accusation": "silent-killer",
+      "verdict": "DEGRADED",
+      "summary": "/data (xfs, /dev/sdb1) mounted read-only; if intentional, treat as expected",
+      "indications": [
+        "/data (xfs, /dev/sdb1) mounted read-only; if intentional, treat as expected"
+      ],
+      "evidence": [],
+      "skipped": [],
+      "sources": [
+        {
+          "name": "mounts",
+          "role": "required"
+        },
+        {
+          "name": "fs-usage",
+          "role": "required"
+        },
+        {
+          "name": "kernel-log",
+          "role": "required"
+        }
+      ],
+      "decided_at_ms": 2061,
+      "innocence_at_ms": null
+    },
+    {
+      "accusation": "memrot",
+      "verdict": "UNKNOWN",
+      "summary": "EDAC unavailable: platform exposes no EDAC (VM, or driver not loaded); no kernel-reported memory errors — hardware memory integrity not established",
+      "indications": [],
+      "evidence": [],
+      "skipped": [
+        "EDAC unavailable: platform exposes no EDAC (VM, or driver not loaded)"
+      ],
+      "sources": [
+        {
+          "name": "edac",
+          "role": "required"
+        },
+        {
+          "name": "kernel-log",
+          "role": "required"
+        }
+      ],
+      "decided_at_ms": 2062,
+      "innocence_at_ms": null
+    },
+    {
+      "accusation": "network-choke-point",
+      "verdict": "NOT_APPLICABLE",
+      "summary": "no non-loopback interfaces on this host",
+      "indications": [],
+      "evidence": [],
+      "skipped": [],
+      "sources": [
+        {
+          "name": "net",
+          "role": "required"
+        }
+      ],
+      "decided_at_ms": 2063,
+      "innocence_at_ms": null
+    }
+  ],
+  "envelope": {
+    "boot_time": "2025-09-03T11:46:40Z",
+    "sources": [
+      {
+        "name": "kernel-log",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "dmesg",
+        "elapsed_ms": 14,
+        "completed_at_ms": 56
+      },
+      {
+        "name": "mounts",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "/proc/self/mounts",
+        "detail": "17 non-material mounts excluded",
+        "elapsed_ms": 1,
+        "completed_at_ms": 1
+      },
+      {
+        "name": "fs-usage",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "df -P -B1 / df -P -i per material filesystem",
+        "elapsed_ms": 41,
+        "completed_at_ms": 42
+      },
+      {
+        "name": "edac",
+        "status": "unsupported",
+        "completeness": "none",
+        "detail": "platform exposes no EDAC (VM, or driver not loaded)",
+        "elapsed_ms": 0,
+        "completed_at_ms": 56
+      },
+      {
+        "name": "net",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "/sys/class/net",
+        "elapsed_ms": 2003,
+        "completed_at_ms": 2059,
+        "window": {
+          "started_at_ms": 56,
+          "ended_at_ms": 2059,
+          "duration_ms": 2003
+        }
+      },
+      {
+        "name": "routes",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "/proc/net/route; /proc/net/ipv6_route",
+        "elapsed_ms": 0,
+        "completed_at_ms": 2059
+      },
+      {
+        "name": "conntrack",
+        "status": "malformed",
+        "completeness": "none",
+        "detail": "/proc/sys/net/netfilter/nf_conntrack_max: not a number",
+        "elapsed_ms": 0,
+        "completed_at_ms": 2059
+      }
+    ]
+  },
+  "semantics": {
+    "clear": "all required evidence sources were complete and no collected evidence indicates the failure class",
+    "degraded": "collected evidence contains at least one positive indication of the failure class, including retained evidence from a partial source",
+    "unknown": "no indication was found but at least one required evidence source was unavailable, unsupported, inaccessible, malformed, or incomplete; innocence was not established",
+    "decision_latency": "duration from interrogation start until every requested accusation reached a terminal verdict",
+    "mtti": "duration from interrogation start until every requested accusation was cleared or established semantically void; null when any requested accusation is degraded or unknown",
+    "interrogation_complete": "duration from interrogation start until receipt construction began after collection and evaluation completed"
+  }
+}

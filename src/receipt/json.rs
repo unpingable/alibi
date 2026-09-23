@@ -107,8 +107,29 @@ pub fn receipt_json(receipt: &Receipt) -> Json {
                 ("evidence".to_string(), strings(&f.evidence)),
                 ("skipped".to_string(), strings(&f.skipped)),
                 (
-                    "time_to_verdict_ms".to_string(),
-                    Json::Num(millis(f.time_to_verdict)),
+                    "sources".to_string(),
+                    Json::Array(
+                        f.source_roles
+                            .iter()
+                            .map(|source_role| {
+                                Json::Object(vec![
+                                    (
+                                        "name".to_string(),
+                                        Json::Str(source_role.source.as_str().to_string()),
+                                    ),
+                                    (
+                                        "role".to_string(),
+                                        Json::Str(source_role.role.as_str().to_string()),
+                                    ),
+                                ])
+                            })
+                            .collect(),
+                    ),
+                ),
+                ("decided_at_ms".to_string(), Json::Num(millis(f.decided_at))),
+                (
+                    "innocence_at_ms".to_string(),
+                    optional_millis(f.innocence_at),
                 ),
             ])
         })
@@ -124,6 +145,10 @@ pub fn receipt_json(receipt: &Receipt) -> Json {
                     "status".to_string(),
                     Json::Str(s.status.as_str().to_string()),
                 ),
+                (
+                    "completeness".to_string(),
+                    Json::Str(s.completeness.as_str().to_string()),
+                ),
             ];
             if let Some(method) = &s.method {
                 obj.push(("method".to_string(), Json::Str(method.clone())));
@@ -132,6 +157,29 @@ pub fn receipt_json(receipt: &Receipt) -> Json {
                 obj.push(("detail".to_string(), Json::Str(detail.clone())));
             }
             obj.push(("elapsed_ms".to_string(), Json::Num(millis(s.elapsed))));
+            obj.push((
+                "completed_at_ms".to_string(),
+                Json::Num(millis(s.completed_at)),
+            ));
+            if let Some(window) = s.window {
+                obj.push((
+                    "window".to_string(),
+                    Json::Object(vec![
+                        (
+                            "started_at_ms".to_string(),
+                            Json::Num(millis(window.started_at)),
+                        ),
+                        (
+                            "ended_at_ms".to_string(),
+                            Json::Num(millis(window.ended_at)),
+                        ),
+                        (
+                            "duration_ms".to_string(),
+                            Json::Num(millis(window.duration())),
+                        ),
+                    ]),
+                ));
+            }
             Json::Object(obj)
         })
         .collect();
@@ -150,8 +198,15 @@ pub fn receipt_json(receipt: &Receipt) -> Json {
             "started_at".to_string(),
             Json::Str(receipt.started_at.clone()),
         ),
-        ("elapsed_ms".to_string(), Json::Num(millis(receipt.elapsed))),
-        ("mtti_ms".to_string(), Json::Num(millis(receipt.mtti))),
+        (
+            "decision_latency_ms".to_string(),
+            Json::Num(millis(receipt.decision_latency)),
+        ),
+        ("mtti_ms".to_string(), optional_millis(receipt.mtti)),
+        (
+            "interrogation_complete_ms".to_string(),
+            Json::Num(millis(receipt.interrogation_complete)),
+        ),
         (
             "innocence_established".to_string(),
             Json::Bool(receipt.innocence_established),
@@ -174,28 +229,42 @@ pub fn receipt_json(receipt: &Receipt) -> Json {
                 (
                     "clear".to_string(),
                     Json::Str(
-                        "all required evidence sources were collected and no collected evidence indicates the failure class"
+                        "all required evidence sources were complete and no collected evidence indicates the failure class"
                             .to_string(),
                     ),
                 ),
                 (
                     "degraded".to_string(),
                     Json::Str(
-                        "collected evidence contains at least one positive indication of the failure class"
+                        "collected evidence contains at least one positive indication of the failure class, including retained evidence from a partial source"
                             .to_string(),
                     ),
                 ),
                 (
                     "unknown".to_string(),
                     Json::Str(
-                        "no indication was found but at least one required evidence source was unavailable, unsupported, inaccessible, or malformed; innocence was not established"
+                        "no indication was found but at least one required evidence source was unavailable, unsupported, inaccessible, malformed, or incomplete; innocence was not established"
+                            .to_string(),
+                    ),
+                ),
+                (
+                    "decision_latency".to_string(),
+                    Json::Str(
+                        "duration from interrogation start until every requested accusation reached a terminal verdict"
                             .to_string(),
                     ),
                 ),
                 (
                     "mtti".to_string(),
                     Json::Str(
-                        "duration from interrogation start until every requested accusation reached a terminal verdict; unknown ends the clock but does not establish innocence"
+                        "duration from interrogation start until every requested accusation was cleared or established semantically void; null when any requested accusation is degraded or unknown"
+                            .to_string(),
+                    ),
+                ),
+                (
+                    "interrogation_complete".to_string(),
+                    Json::Str(
+                        "duration from interrogation start until receipt construction began after collection and evaluation completed"
                             .to_string(),
                     ),
                 ),
@@ -214,6 +283,10 @@ fn strings(items: &[String]) -> Json {
 
 fn millis(d: Duration) -> u64 {
     d.as_millis() as u64
+}
+
+fn optional_millis(d: Option<Duration>) -> Json {
+    d.map_or(Json::Null, |duration| Json::Num(millis(duration)))
 }
 
 #[cfg(test)]
@@ -243,8 +316,9 @@ mod tests {
         let receipt = Receipt {
             host: "h".to_string(),
             started_at: "2026-09-15T00:00:00Z".to_string(),
-            elapsed: Duration::from_millis(5),
-            mtti: Duration::from_millis(4),
+            decision_latency: Duration::from_millis(4),
+            mtti: Some(Duration::from_millis(4)),
+            interrogation_complete: Duration::from_millis(5),
             innocence_established: true,
             verdict: Verdict::Clear,
             findings: vec![],
@@ -258,8 +332,9 @@ mod tests {
             "\"receipt_version\"",
             "\"host\"",
             "\"started_at\"",
-            "\"elapsed_ms\"",
+            "\"decision_latency_ms\"",
             "\"mtti_ms\"",
+            "\"interrogation_complete_ms\"",
             "\"innocence_established\"",
             "\"verdict\"",
             "\"findings\"",
@@ -269,5 +344,22 @@ mod tests {
             assert!(rendered.contains(key), "missing key {}", key);
         }
         assert!(rendered.contains("\"boot_time\": null"));
+    }
+
+    #[test]
+    fn absent_mtti_renders_as_null() {
+        let receipt = Receipt {
+            host: "h".to_string(),
+            started_at: "2026-09-15T00:00:00Z".to_string(),
+            decision_latency: Duration::from_millis(4),
+            mtti: None,
+            interrogation_complete: Duration::from_millis(5),
+            innocence_established: false,
+            verdict: Verdict::Unknown,
+            findings: vec![],
+            boot_time: None,
+            sources: vec![],
+        };
+        assert!(render(&receipt).contains("\"mtti_ms\": null"));
     }
 }

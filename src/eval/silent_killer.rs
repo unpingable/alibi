@@ -1,5 +1,13 @@
-use crate::collect::{Facts, FsUsage, Mount};
-use crate::eval::{base_verdict, first_plus_more, patterns, Evaluator, Finding, Verdict};
+use crate::collect::{Facts, FsUsage, Mount, SourceId};
+use crate::eval::{
+    base_verdict, first_plus_more, patterns, Evaluator, Finding, SourceRole, Verdict,
+};
+
+const SOURCES: &[SourceRole] = &[
+    SourceRole::required(SourceId::Mounts),
+    SourceRole::required(SourceId::FsUsage),
+    SourceRole::required(SourceId::KernelLog),
+];
 
 pub struct SilentKiller;
 
@@ -8,7 +16,11 @@ impl Evaluator for SilentKiller {
         "silent-killer"
     }
 
-    fn evaluate(&self, facts: &Facts) -> Finding {
+    fn source_roles(&self) -> &'static [SourceRole] {
+        SOURCES
+    }
+
+    fn evaluate_evidence(&self, facts: &Facts) -> Finding {
         let mut finding = Finding::new(self.accusation());
         let mut required_failures: Vec<String> = Vec::new();
 
@@ -78,21 +90,25 @@ impl Evaluator for SilentKiller {
         };
 
         for u in usage {
-            if u.total_bytes > 0 && (u.free_bytes as u128) * 20 <= u.total_bytes as u128 {
-                finding.indications.push(format!(
-                    "{} ({}) critically low on space ({}% free)",
-                    u.mountpoint,
-                    u.device,
-                    pct_free(u.free_bytes, u.total_bytes)
-                ));
+            if let Some(bytes) = u.bytes {
+                if bytes.total > 0 && (bytes.free as u128) * 20 <= bytes.total as u128 {
+                    finding.indications.push(format!(
+                        "{} ({}) critically low on space ({}% free)",
+                        u.mountpoint,
+                        u.device,
+                        pct_free(bytes.free, bytes.total)
+                    ));
+                }
             }
-            if u.total_inodes > 0 && (u.free_inodes as u128) * 20 <= u.total_inodes as u128 {
-                finding.indications.push(format!(
-                    "{} ({}) inode exhaustion ({}% free)",
-                    u.mountpoint,
-                    u.device,
-                    pct_free(u.free_inodes, u.total_inodes)
-                ));
+            if let Some(inodes) = u.inodes {
+                if inodes.total > 0 && (inodes.free as u128) * 20 <= inodes.total as u128 {
+                    finding.indications.push(format!(
+                        "{} ({}) inode exhaustion ({}% free)",
+                        u.mountpoint,
+                        u.device,
+                        pct_free(inodes.free, inodes.total)
+                    ));
+                }
             }
         }
 
@@ -139,11 +155,8 @@ fn min_free(usage: &[FsUsage], bytes: bool) -> Option<(String, u64)> {
     usage
         .iter()
         .filter_map(|u| {
-            let (free, total) = if bytes {
-                (u.free_bytes, u.total_bytes)
-            } else {
-                (u.free_inodes, u.total_inodes)
-            };
+            let capacity = if bytes { u.bytes } else { u.inodes }?;
+            let (free, total) = (capacity.free, capacity.total);
             if total == 0 {
                 None
             } else {
@@ -156,7 +169,7 @@ fn min_free(usage: &[FsUsage], bytes: bool) -> Option<(String, u64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::collect::{FsUsage, KernelLog, Mount, Source, Status};
+    use crate::collect::{FsCapacity, FsUsage, KernelLog, Mount, Source, Status};
     use crate::eval::fixtures::{self, src_ok};
     use std::time::Duration;
 
@@ -244,10 +257,14 @@ mod tests {
         facts.fs_usage = src_ok(vec![FsUsage {
             device: "/dev/sda1".to_string(),
             mountpoint: "/".to_string(),
-            total_bytes: 100,
-            free_bytes: 3,
-            total_inodes: 100,
-            free_inodes: 90,
+            bytes: Some(FsCapacity {
+                total: 100,
+                free: 3,
+            }),
+            inodes: Some(FsCapacity {
+                total: 100,
+                free: 90,
+            }),
         }]);
         let finding = SilentKiller.evaluate(&facts);
         assert_eq!(finding.verdict, Verdict::Degraded);
@@ -258,15 +275,67 @@ mod tests {
     }
 
     #[test]
+    fn partial_usage_preserves_positive_evidence() {
+        let mut facts = fixtures::clean_facts();
+        facts.fs_usage = Source::partial(
+            vec![FsUsage {
+                device: "/dev/sda1".to_string(),
+                mountpoint: "/".to_string(),
+                bytes: Some(FsCapacity {
+                    total: 100,
+                    free: 3,
+                }),
+                inodes: None,
+            }],
+            Status::Unavailable,
+            "/data: df timed out",
+            "df fixture",
+            Duration::from_millis(1),
+        );
+        let finding = SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Degraded);
+        assert!(finding
+            .indications
+            .iter()
+            .any(|i| i.contains("critically low on space")));
+    }
+
+    #[test]
+    fn partial_benign_usage_cannot_clear() {
+        let mut facts = fixtures::clean_facts();
+        facts.fs_usage = Source::partial(
+            vec![FsUsage {
+                device: "/dev/sda1".to_string(),
+                mountpoint: "/".to_string(),
+                bytes: Some(FsCapacity {
+                    total: 100,
+                    free: 50,
+                }),
+                inodes: None,
+            }],
+            Status::Unavailable,
+            "/data: df timed out",
+            "df fixture",
+            Duration::from_millis(1),
+        );
+        let finding = SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+    }
+
+    #[test]
     fn degraded_on_inode_exhaustion() {
         let mut facts = fixtures::clean_facts();
         facts.fs_usage = src_ok(vec![FsUsage {
             device: "/dev/sda1".to_string(),
             mountpoint: "/".to_string(),
-            total_bytes: 100,
-            free_bytes: 50,
-            total_inodes: 100,
-            free_inodes: 4,
+            bytes: Some(FsCapacity {
+                total: 100,
+                free: 50,
+            }),
+            inodes: Some(FsCapacity {
+                total: 100,
+                free: 4,
+            }),
         }]);
         let finding = SilentKiller.evaluate(&facts);
         assert_eq!(finding.verdict, Verdict::Degraded);

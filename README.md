@@ -24,15 +24,18 @@ to stop suspecting the machine?
 
 Nothing collapses to pass/fail:
 
-- `CLEAR` — every required evidence source was collected; nothing supports the accusation.
-- `DEGRADED` — collected evidence positively indicates the failure class.
-- `UNKNOWN` — required evidence was unavailable, unsupported, or malformed. Innocence was **not** established. Collection failure is never reported as health.
+- `CLEAR` — all required evidence sources were complete and no collected evidence indicates the failure class.
+- `DEGRADED` — collected evidence contains at least one positive indication of the failure class, including retained evidence from a partial source.
+- `UNKNOWN` — no indication was found but at least one required evidence source was unavailable, unsupported, inaccessible, malformed, or incomplete; innocence was **not** established. Collection failure is never reported as health.
 - `NOT_APPLICABLE` — the accusation is semantically void on this host.
 
 Alibi never claims "this machine is definitely healthy." It claims: *within this
 explicitly recorded interrogation envelope, no evidence supports these named
-accusations.* The envelope — sources, methods, evidence window, everything that
-could not be checked — is part of every receipt.
+accusations.* The envelope — source completeness, methods, collection completion
+and sample windows, and everything that could not be checked — is part of every
+receipt. Each finding identifies which sources are required to clear it and which
+are supporting only. Partial evidence is retained: it can establish `DEGRADED`,
+but an incomplete required source can never authorize `CLEAR`.
 
 ## The V0 accusations
 
@@ -62,7 +65,7 @@ alibi --version                   # implementation version
 ```
 
 ```text
-ALIBI host=crow elapsed=2.31s mtti=2.31s
+ALIBI host=crow decision=2.31s mtti=n/a complete=2.31s
 
 CLEAR     kernel-scream        no serious kernel/hardware events found
 CLEAR     silent-killer        mounted filesystems writable; no journal/fs errors found
@@ -82,12 +85,15 @@ and what remains meaningful without it.
 
 ## The receipt contract
 
-`--json` receipts carry `"receipt_version": 1` and the Alibi `version` that
-produced them. The format is guarded by a golden contract test
-(`tests/golden/receipt_v1.json`): field removals, renames, and reorderings
-fail the build. This is not a long-term compatibility promise — V0 contract
-changes are intentional, not accidental. Sanitized, fictional example receipts
-live in [examples/](examples/); use those in documentation and bug reports.
+`--json` receipts carry `"receipt_version": 2` and the Alibi `version` that
+produced them. V2 separates decision latency from time to innocence:
+`decision_latency_ms` is always numeric, while `mtti_ms` is `null` unless every
+requested accusation is `CLEAR` or `NOT_APPLICABLE`. The format is guarded by a
+golden contract test (`tests/golden/receipt_v2.json`): field removals, renames,
+and reorderings fail the build. This is not a long-term compatibility promise —
+contract changes are intentional, not accidental. Sanitized, fictional example
+receipts live in [examples/](examples/); use those in documentation and bug
+reports. The V1 examples remain as historical contract illustrations.
 
 ## Receipt sensitivity
 

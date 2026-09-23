@@ -4,8 +4,8 @@ pub mod kernellog;
 pub mod mounts;
 pub mod net;
 
-pub use edac::Edac;
-pub use fsusage::FsUsage;
+pub use edac::{Edac, EdacController};
+pub use fsusage::{FsCapacity, FsUsage};
 pub use kernellog::KernelLog;
 pub use mounts::Mount;
 pub use net::{Conntrack, Iface, NetFacts, RouteFacts};
@@ -23,6 +23,95 @@ pub enum Status {
     Malformed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Completeness {
+    Complete,
+    Partial,
+    None,
+}
+
+impl Completeness {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Completeness::Complete => "complete",
+            Completeness::Partial => "partial",
+            Completeness::None => "none",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EvidenceWindow {
+    pub started_at: Duration,
+    pub ended_at: Duration,
+}
+
+impl EvidenceWindow {
+    pub fn duration(self) -> Duration {
+        self.ended_at.saturating_sub(self.started_at)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SourceId {
+    KernelLog,
+    Mounts,
+    FsUsage,
+    Edac,
+    Net,
+    Routes,
+    Conntrack,
+}
+
+impl SourceId {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SourceId::KernelLog => "kernel-log",
+            SourceId::Mounts => "mounts",
+            SourceId::FsUsage => "fs-usage",
+            SourceId::Edac => "edac",
+            SourceId::Net => "net",
+            SourceId::Routes => "routes",
+            SourceId::Conntrack => "conntrack",
+        }
+    }
+
+    pub const ALL: [SourceId; 7] = [
+        SourceId::KernelLog,
+        SourceId::Mounts,
+        SourceId::FsUsage,
+        SourceId::Edac,
+        SourceId::Net,
+        SourceId::Routes,
+        SourceId::Conntrack,
+    ];
+}
+
+#[derive(Debug, Clone)]
+pub struct CollectionPlan {
+    sources: Vec<SourceId>,
+}
+
+impl CollectionPlan {
+    pub fn new(mut sources: Vec<SourceId>) -> Self {
+        sources.sort();
+        sources.dedup();
+        CollectionPlan { sources }
+    }
+
+    pub fn all() -> Self {
+        Self::new(SourceId::ALL.to_vec())
+    }
+
+    pub fn contains(&self, source: SourceId) -> bool {
+        self.sources.binary_search(&source).is_ok()
+    }
+
+    pub fn sources(&self) -> &[SourceId] {
+        &self.sources
+    }
+}
+
 impl Status {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -37,20 +126,46 @@ impl Status {
 #[derive(Debug)]
 pub struct Source<T> {
     pub status: Status,
+    pub completeness: Completeness,
     pub value: Option<T>,
     pub detail: Option<String>,
     pub method: Option<String>,
     pub elapsed: Duration,
+    pub completed_at: Duration,
+    pub window: Option<EvidenceWindow>,
 }
 
 impl<T> Source<T> {
     pub fn ok(value: T, method: impl Into<String>, elapsed: Duration) -> Self {
         Source {
             status: Status::Ok,
+            completeness: Completeness::Complete,
             value: Some(value),
             detail: None,
             method: Some(method.into()),
             elapsed,
+            completed_at: elapsed,
+            window: None,
+        }
+    }
+
+    pub fn partial(
+        value: T,
+        status: Status,
+        detail: impl Into<String>,
+        method: impl Into<String>,
+        elapsed: Duration,
+    ) -> Self {
+        debug_assert!(status != Status::Ok);
+        Source {
+            status,
+            completeness: Completeness::Partial,
+            value: Some(value),
+            detail: Some(detail.into()),
+            method: Some(method.into()),
+            elapsed,
+            completed_at: elapsed,
+            window: None,
         }
     }
 
@@ -58,23 +173,39 @@ impl<T> Source<T> {
         debug_assert!(status != Status::Ok);
         Source {
             status,
+            completeness: Completeness::None,
             value: None,
             detail: Some(detail.into()),
             method: None,
             elapsed,
+            completed_at: elapsed,
+            window: None,
         }
     }
 
     pub fn is_ok(&self) -> bool {
-        self.status == Status::Ok
+        self.status == Status::Ok && self.completeness == Completeness::Complete
     }
 
     pub fn get(&self) -> Option<&T> {
-        if self.is_ok() {
-            self.value.as_ref()
-        } else {
-            None
-        }
+        self.value.as_ref()
+    }
+
+    pub fn is_complete(&self) -> bool {
+        self.is_ok()
+    }
+
+    pub fn complete_at(mut self, completed_at: Duration) -> Self {
+        self.completed_at = completed_at;
+        self
+    }
+
+    pub fn with_window(mut self, started_at: Duration, ended_at: Duration) -> Self {
+        self.window = Some(EvidenceWindow {
+            started_at,
+            ended_at,
+        });
+        self
     }
 
     pub fn failure_reason(&self) -> String {
@@ -98,18 +229,81 @@ pub struct Facts {
 }
 
 pub fn collect_facts() -> Facts {
-    let mounts = mounts::collect();
-    let fs_usage = fsusage::collect(&mounts);
+    let t0 = Instant::now();
+    collect_facts_for(&CollectionPlan::all(), t0)
+}
+
+pub fn collect_facts_for(plan: &CollectionPlan, t0: Instant) -> Facts {
+    let mounts = if plan.contains(SourceId::Mounts) || plan.contains(SourceId::FsUsage) {
+        mounts::collect().complete_at(t0.elapsed())
+    } else {
+        not_requested()
+    };
+    let fs_usage = if plan.contains(SourceId::FsUsage) {
+        fsusage::collect(&mounts).complete_at(t0.elapsed())
+    } else {
+        not_requested()
+    };
     Facts {
         hostname: hostname(),
         boot_time: boot_time(),
-        kernel_log: kernellog::collect(),
+        kernel_log: if plan.contains(SourceId::KernelLog) {
+            kernellog::collect().complete_at(t0.elapsed())
+        } else {
+            not_requested()
+        },
         mounts,
         fs_usage,
-        edac: edac::collect(),
-        net: net::collect_net(),
-        routes: net::collect_routes(),
-        conntrack: net::collect_conntrack(),
+        edac: if plan.contains(SourceId::Edac) {
+            edac::collect().complete_at(t0.elapsed())
+        } else {
+            not_requested()
+        },
+        net: if plan.contains(SourceId::Net) {
+            net::collect_net(t0).complete_at(t0.elapsed())
+        } else {
+            not_requested()
+        },
+        routes: if plan.contains(SourceId::Routes) {
+            net::collect_routes().complete_at(t0.elapsed())
+        } else {
+            not_requested()
+        },
+        conntrack: if plan.contains(SourceId::Conntrack) {
+            net::collect_conntrack().complete_at(t0.elapsed())
+        } else {
+            not_requested()
+        },
+    }
+}
+
+fn not_requested<T>() -> Source<T> {
+    Source::failed(Status::Unsupported, "not requested", Duration::ZERO)
+}
+
+impl Facts {
+    pub fn source_complete(&self, id: SourceId) -> bool {
+        match id {
+            SourceId::KernelLog => self.kernel_log.is_complete(),
+            SourceId::Mounts => self.mounts.is_complete(),
+            SourceId::FsUsage => self.fs_usage.is_complete(),
+            SourceId::Edac => self.edac.is_complete(),
+            SourceId::Net => self.net.is_complete(),
+            SourceId::Routes => self.routes.is_complete(),
+            SourceId::Conntrack => self.conntrack.is_complete(),
+        }
+    }
+
+    pub fn source_failure(&self, id: SourceId) -> String {
+        match id {
+            SourceId::KernelLog => self.kernel_log.failure_reason(),
+            SourceId::Mounts => self.mounts.failure_reason(),
+            SourceId::FsUsage => self.fs_usage.failure_reason(),
+            SourceId::Edac => self.edac.failure_reason(),
+            SourceId::Net => self.net.failure_reason(),
+            SourceId::Routes => self.routes.failure_reason(),
+            SourceId::Conntrack => self.conntrack.failure_reason(),
+        }
     }
 }
 

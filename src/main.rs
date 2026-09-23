@@ -76,16 +76,20 @@ fn cmd_check(args: &[String]) -> ExitCode {
 
     let t0 = Instant::now();
     let started = SystemTime::now();
-    let facts = collect::collect_facts();
+    let plan = eval::collection_plan(&evaluators);
+    let facts = collect::collect_facts_for(&plan, t0);
     let mut findings = Vec::new();
     for evaluator in &evaluators {
         let mut finding = evaluator.evaluate(&facts);
-        finding.time_to_verdict = t0.elapsed();
+        finding.decided_at = t0.elapsed();
+        if finding.verdict == eval::Verdict::Clear {
+            finding.innocence_at = Some(finding.decided_at);
+        }
         findings.push(finding);
     }
-    let elapsed = t0.elapsed();
+    let interrogation_complete = t0.elapsed();
     let code = receipt::exit_code(&findings);
-    let receipt = receipt::build(&facts, findings, started, elapsed);
+    let receipt = receipt::build(&facts, findings, started, interrogation_complete, &plan);
     if json {
         println!("{}", receipt::json::render(&receipt));
     } else {

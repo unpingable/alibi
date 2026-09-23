@@ -2,15 +2,28 @@ use crate::collect::{run_command, Mount, Source, Status};
 use std::time::{Duration, Instant};
 
 const DF_TIMEOUT: Duration = Duration::from_secs(3);
+const DF_METHOD: &str = "df -P -B1 / df -P -i per material filesystem";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FsCapacity {
+    pub total: u64,
+    pub free: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FsUsage {
     pub device: String,
     pub mountpoint: String,
-    pub total_bytes: u64,
-    pub free_bytes: u64,
-    pub total_inodes: u64,
-    pub free_inodes: u64,
+    pub bytes: Option<FsCapacity>,
+    pub inodes: Option<FsCapacity>,
+}
+
+#[derive(Debug)]
+struct DfOutputs {
+    device: String,
+    mountpoint: String,
+    bytes: Result<String, String>,
+    inodes: Result<String, String>,
 }
 
 pub fn collect(mounts: &Source<Vec<Mount>>) -> Source<Vec<FsUsage>> {
@@ -21,62 +34,96 @@ pub fn collect(mounts: &Source<Vec<Mount>>) -> Source<Vec<FsUsage>> {
             return Source::failed(Status::Unavailable, "mounts unavailable", start.elapsed());
         }
     };
+    let outputs = dedupe_filesystems(mounts)
+        .into_iter()
+        .map(|(device, mountpoint)| {
+            let bytes = run_command("df", &["-P", "-B1", "--", &mountpoint], DF_TIMEOUT);
+            let inodes = run_command("df", &["-P", "-i", "--", &mountpoint], DF_TIMEOUT);
+            DfOutputs {
+                device,
+                mountpoint,
+                bytes,
+                inodes,
+            }
+        })
+        .collect();
+
+    assemble(outputs, start.elapsed())
+}
+
+fn assemble(outputs: Vec<DfOutputs>, elapsed: Duration) -> Source<Vec<FsUsage>> {
     let mut usages = Vec::new();
-    for (device, mountpoint) in dedupe_filesystems(mounts) {
-        let bytes_out = match run_command("df", &["-P", "-B1", "--", &mountpoint], DF_TIMEOUT) {
-            Ok(o) => o,
-            Err(e) => {
-                return Source::failed(
-                    Status::Unavailable,
-                    format!("{}: {}", mountpoint, e),
-                    start.elapsed(),
-                );
-            }
-        };
-        let inodes_out = match run_command("df", &["-P", "-i", "--", &mountpoint], DF_TIMEOUT) {
-            Ok(o) => o,
-            Err(e) => {
-                return Source::failed(
-                    Status::Unavailable,
-                    format!("{}: {}", mountpoint, e),
-                    start.elapsed(),
-                );
-            }
-        };
-        let (total_bytes, free_bytes) = match parse_df_bytes(&bytes_out) {
-            Ok(v) => v,
-            Err(e) => {
-                return Source::failed(
-                    Status::Malformed,
-                    format!("{}: {}", mountpoint, e),
-                    start.elapsed(),
-                );
-            }
-        };
-        let (total_inodes, free_inodes) = match parse_df_inodes(&inodes_out) {
-            Ok(v) => v,
-            Err(e) => {
-                return Source::failed(
-                    Status::Malformed,
-                    format!("{}: {}", mountpoint, e),
-                    start.elapsed(),
-                );
-            }
-        };
-        usages.push(FsUsage {
-            device,
-            mountpoint,
-            total_bytes,
-            free_bytes,
-            total_inodes,
-            free_inodes,
-        });
+    let mut failures = Vec::new();
+
+    for output in outputs {
+        let bytes = parse_dimension(
+            output.bytes,
+            parse_df_bytes,
+            &output.mountpoint,
+            "byte usage",
+            &mut failures,
+        );
+        let inodes = parse_dimension(
+            output.inodes,
+            parse_df_inodes,
+            &output.mountpoint,
+            "inode usage",
+            &mut failures,
+        );
+
+        if bytes.is_some() || inodes.is_some() {
+            usages.push(FsUsage {
+                device: output.device,
+                mountpoint: output.mountpoint,
+                bytes,
+                inodes,
+            });
+        }
     }
-    Source::ok(
-        usages,
-        "df -P -B1 / df -P -i per material filesystem",
-        start.elapsed(),
-    )
+
+    if failures.is_empty() {
+        Source::ok(usages, DF_METHOD, elapsed)
+    } else {
+        let status = failures[0].0;
+        let detail = failures
+            .into_iter()
+            .map(|(_, detail)| detail)
+            .collect::<Vec<_>>()
+            .join("; ");
+        if usages.is_empty() {
+            Source::failed(status, detail, elapsed)
+        } else {
+            Source::partial(usages, status, detail, DF_METHOD, elapsed)
+        }
+    }
+}
+
+fn parse_dimension(
+    output: Result<String, String>,
+    parser: fn(&str) -> Result<(u64, u64), String>,
+    mountpoint: &str,
+    dimension: &str,
+    failures: &mut Vec<(Status, String)>,
+) -> Option<FsCapacity> {
+    match output {
+        Ok(output) => match parser(&output) {
+            Ok((total, free)) => Some(FsCapacity { total, free }),
+            Err(error) => {
+                failures.push((
+                    Status::Malformed,
+                    format!("{} {}: {}", mountpoint, dimension, error),
+                ));
+                None
+            }
+        },
+        Err(error) => {
+            failures.push((
+                Status::Unavailable,
+                format!("{} {}: {}", mountpoint, dimension, error),
+            ));
+            None
+        }
+    }
 }
 
 pub fn dedupe_filesystems(mounts: &[Mount]) -> Vec<(String, String)> {
@@ -141,6 +188,7 @@ fn parse_u64(field: &str, line: &str) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collect::Completeness;
 
     const DF_BYTES: &str = "\
 Filesystem                        1B-blocks        Used    Available Capacity Mounted on
@@ -173,6 +221,105 @@ Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
             parse_df_bytes("Filesystem 1B-blocks Used Available Capacity Mounted on\n").is_err()
         );
         assert!(parse_df_inodes("garbage\n").is_err());
+    }
+
+    fn bytes_output(total: u64, free: u64, mountpoint: &str) -> String {
+        format!(
+            "Filesystem 1B-blocks Used Available Capacity Mounted on\n/dev/test {} 0 {} 1% {}\n",
+            total, free, mountpoint
+        )
+    }
+
+    fn inodes_output(total: u64, free: u64, mountpoint: &str) -> String {
+        format!(
+            "Filesystem Inodes IUsed IFree IUse% Mounted on\n/dev/test {} 0 {} 1% {}\n",
+            total, free, mountpoint
+        )
+    }
+
+    fn outputs(
+        device: &str,
+        mountpoint: &str,
+        bytes: Result<String, String>,
+        inodes: Result<String, String>,
+    ) -> DfOutputs {
+        DfOutputs {
+            device: device.to_string(),
+            mountpoint: mountpoint.to_string(),
+            bytes,
+            inodes,
+        }
+    }
+
+    #[test]
+    fn assembly_preserves_bytes_when_inode_collection_or_parsing_fails() {
+        let inode_failures = [
+            Err("df timed out".to_string()),
+            Ok("not df output".to_string()),
+        ];
+
+        for inode_failure in inode_failures {
+            let source = assemble(
+                vec![outputs(
+                    "/dev/sda1",
+                    "/",
+                    Ok(bytes_output(100, 3, "/")),
+                    inode_failure,
+                )],
+                Duration::ZERO,
+            );
+
+            assert_eq!(source.completeness, Completeness::Partial);
+            let usage = &source.value.as_ref().unwrap()[0];
+            assert_eq!(
+                usage.bytes,
+                Some(FsCapacity {
+                    total: 100,
+                    free: 3
+                })
+            );
+            assert_eq!(usage.inodes, None);
+        }
+    }
+
+    #[test]
+    fn assembly_continues_after_a_mount_fails_completely() {
+        let source = assemble(
+            vec![
+                outputs(
+                    "/dev/sda1",
+                    "/broken",
+                    Err("byte df failed".to_string()),
+                    Err("inode df failed".to_string()),
+                ),
+                outputs(
+                    "/dev/sdb1",
+                    "/later",
+                    Ok(bytes_output(200, 4, "/later")),
+                    Ok(inodes_output(300, 250, "/later")),
+                ),
+            ],
+            Duration::ZERO,
+        );
+
+        assert_eq!(source.completeness, Completeness::Partial);
+        let usages = source.value.as_ref().unwrap();
+        assert_eq!(usages.len(), 1);
+        assert_eq!(usages[0].mountpoint, "/later");
+        assert_eq!(
+            usages[0].bytes,
+            Some(FsCapacity {
+                total: 200,
+                free: 4,
+            })
+        );
+        assert_eq!(
+            usages[0].inodes,
+            Some(FsCapacity {
+                total: 300,
+                free: 250,
+            })
+        );
     }
 
     fn mount(device: &str, mountpoint: &str, fstype: &str, ro: bool) -> Mount {

@@ -7,7 +7,7 @@ pub mod silent_killer;
 #[cfg(test)]
 pub mod fixtures;
 
-use crate::collect::Facts;
+use crate::collect::{CollectionPlan, Facts, SourceId};
 use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,6 +16,43 @@ pub enum Verdict {
     Degraded,
     Unknown,
     NotApplicable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EvidenceRole {
+    Required,
+    Supporting,
+}
+
+impl EvidenceRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            EvidenceRole::Required => "required",
+            EvidenceRole::Supporting => "supporting",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceRole {
+    pub source: SourceId,
+    pub role: EvidenceRole,
+}
+
+impl SourceRole {
+    pub const fn required(source: SourceId) -> Self {
+        SourceRole {
+            source,
+            role: EvidenceRole::Required,
+        }
+    }
+
+    pub const fn supporting(source: SourceId) -> Self {
+        SourceRole {
+            source,
+            role: EvidenceRole::Supporting,
+        }
+    }
 }
 
 impl Verdict {
@@ -37,7 +74,9 @@ pub struct Finding {
     pub indications: Vec<String>,
     pub evidence: Vec<String>,
     pub skipped: Vec<String>,
-    pub time_to_verdict: Duration,
+    pub source_roles: Vec<SourceRole>,
+    pub decided_at: Duration,
+    pub innocence_at: Option<Duration>,
 }
 
 impl Finding {
@@ -49,14 +88,26 @@ impl Finding {
             indications: Vec::new(),
             evidence: Vec::new(),
             skipped: Vec::new(),
-            time_to_verdict: Duration::ZERO,
+            source_roles: Vec::new(),
+            decided_at: Duration::ZERO,
+            innocence_at: None,
         }
     }
 }
 
 pub trait Evaluator {
     fn accusation(&self) -> &'static str;
-    fn evaluate(&self, facts: &Facts) -> Finding;
+    fn source_roles(&self) -> &'static [SourceRole];
+    fn evaluate_evidence(&self, facts: &Facts) -> Finding;
+
+    fn evaluate(&self, facts: &Facts) -> Finding {
+        let mut finding = self.evaluate_evidence(facts);
+        if finding.source_roles.is_empty() {
+            finding.source_roles = self.source_roles().to_vec();
+        }
+        enforce_required_sources(&mut finding, facts);
+        finding
+    }
 }
 
 pub fn registry() -> Vec<Box<dyn Evaluator>> {
@@ -66,6 +117,37 @@ pub fn registry() -> Vec<Box<dyn Evaluator>> {
         Box::new(memrot::Memrot),
         Box::new(network_choke_point::NetworkChokePoint),
     ]
+}
+
+pub fn collection_plan(evaluators: &[Box<dyn Evaluator>]) -> CollectionPlan {
+    CollectionPlan::new(
+        evaluators
+            .iter()
+            .flat_map(|e| e.source_roles().iter().map(|r| r.source))
+            .collect(),
+    )
+}
+
+fn enforce_required_sources(finding: &mut Finding, facts: &Facts) {
+    let incomplete: Vec<String> = finding
+        .source_roles
+        .iter()
+        .filter(|r| r.role == EvidenceRole::Required && !facts.source_complete(r.source))
+        .map(|r| format!("{}: {}", r.source.as_str(), facts.source_failure(r.source)))
+        .collect();
+
+    for failure in &incomplete {
+        let message = format!("required evidence incomplete: {}", failure);
+        if !finding.skipped.contains(&message) {
+            finding.skipped.push(message);
+        }
+    }
+
+    if !incomplete.is_empty() && matches!(finding.verdict, Verdict::Clear | Verdict::NotApplicable)
+    {
+        finding.verdict = Verdict::Unknown;
+        finding.summary = format!("required evidence incomplete: {}", incomplete.join("; "));
+    }
 }
 
 pub fn base_verdict(indications: &[String], required_failures: &[String]) -> Verdict {
@@ -106,5 +188,18 @@ mod tests {
     #[test]
     fn base_verdict_clear_when_all_sources_ok() {
         assert_eq!(base_verdict(&[], &[]), Verdict::Clear);
+    }
+
+    #[test]
+    fn kernel_only_collection_plan_excludes_network_sources() {
+        let evaluators: Vec<_> = registry()
+            .into_iter()
+            .filter(|e| e.accusation() == "kernel-scream")
+            .collect();
+        let plan = collection_plan(&evaluators);
+        assert!(plan.contains(SourceId::KernelLog));
+        assert!(!plan.contains(SourceId::Net));
+        assert!(!plan.contains(SourceId::Routes));
+        assert!(!plan.contains(SourceId::Conntrack));
     }
 }

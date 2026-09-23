@@ -1,5 +1,12 @@
-use crate::collect::Facts;
-use crate::eval::{base_verdict, first_plus_more, patterns, Evaluator, Finding, Verdict};
+use crate::collect::{Facts, SourceId};
+use crate::eval::{
+    base_verdict, first_plus_more, patterns, Evaluator, Finding, SourceRole, Verdict,
+};
+
+const SOURCES: &[SourceRole] = &[
+    SourceRole::required(SourceId::Edac),
+    SourceRole::required(SourceId::KernelLog),
+];
 
 pub struct Memrot;
 
@@ -8,14 +15,18 @@ impl Evaluator for Memrot {
         "memrot"
     }
 
-    fn evaluate(&self, facts: &Facts) -> Finding {
+    fn source_roles(&self) -> &'static [SourceRole] {
+        SOURCES
+    }
+
+    fn evaluate_evidence(&self, facts: &Facts) -> Finding {
         let mut finding = Finding::new(self.accusation());
         let mut required_failures: Vec<String> = Vec::new();
 
         match facts.edac.get() {
             Some(edac) => {
-                let ue: u64 = edac.controllers.iter().map(|c| c.1).sum();
-                let ce: u64 = edac.controllers.iter().map(|c| c.2).sum();
+                let ue: u64 = edac.controllers.iter().filter_map(|c| c.ue).sum();
+                let ce: u64 = edac.controllers.iter().filter_map(|c| c.ce).sum();
                 if ue > 0 {
                     finding.indications.push(format!(
                         "uncorrected memory errors reported by EDAC (ue={})",
@@ -28,7 +39,14 @@ impl Evaluator for Memrot {
                         ce
                     ));
                 }
-                if ue == 0 && ce == 0 {
+                if facts.edac.is_complete()
+                    && edac
+                        .controllers
+                        .iter()
+                        .all(|controller| controller.ue.is_some() && controller.ce.is_some())
+                    && ue == 0
+                    && ce == 0
+                {
                     finding.evidence.push(format!(
                         "EDAC counters zero across {} memory controller(s)",
                         edac.controllers.len()
@@ -83,7 +101,7 @@ impl Evaluator for Memrot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::collect::{Edac, KernelLog, Source, Status};
+    use crate::collect::{Edac, EdacController, KernelLog, Source, Status};
     use crate::eval::fixtures::{self, src_ok};
     use std::time::Duration;
 
@@ -101,7 +119,11 @@ mod tests {
     fn degraded_on_uncorrected_errors() {
         let mut facts = fixtures::clean_facts();
         facts.edac = src_ok(Edac {
-            controllers: vec![("mc0".to_string(), 2, 0)],
+            controllers: vec![EdacController {
+                name: "mc0".to_string(),
+                ue: Some(2),
+                ce: Some(0),
+            }],
         });
         let finding = Memrot.evaluate(&facts);
         assert_eq!(finding.verdict, Verdict::Degraded);
@@ -112,11 +134,60 @@ mod tests {
     fn degraded_on_corrected_errors() {
         let mut facts = fixtures::clean_facts();
         facts.edac = src_ok(Edac {
-            controllers: vec![("mc0".to_string(), 0, 7)],
+            controllers: vec![EdacController {
+                name: "mc0".to_string(),
+                ue: Some(0),
+                ce: Some(7),
+            }],
         });
         let finding = Memrot.evaluate(&facts);
         assert_eq!(finding.verdict, Verdict::Degraded);
         assert!(finding.indications[0].contains("ce=7"));
+    }
+
+    #[test]
+    fn partial_edac_preserves_positive_evidence() {
+        let mut facts = fixtures::clean_facts();
+        facts.edac = Source::partial(
+            Edac {
+                controllers: vec![EdacController {
+                    name: "mc0".to_string(),
+                    ue: Some(2),
+                    ce: None,
+                }],
+            },
+            Status::Unavailable,
+            "mc0/ce_count: permission denied",
+            "/sys/devices/system/edac/mc",
+            Duration::from_millis(1),
+        );
+        let finding = Memrot.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Degraded);
+        assert!(finding.indications.iter().any(|i| i.contains("ue=2")));
+    }
+
+    #[test]
+    fn partial_edac_without_indication_cannot_clear() {
+        let mut facts = fixtures::clean_facts();
+        facts.edac = Source::partial(
+            Edac {
+                controllers: vec![EdacController {
+                    name: "mc0".to_string(),
+                    ue: Some(0),
+                    ce: None,
+                }],
+            },
+            Status::Unavailable,
+            "mc0/ce_count: disappeared",
+            "/sys/devices/system/edac/mc",
+            Duration::from_millis(1),
+        );
+        let finding = Memrot.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+        assert!(!finding
+            .evidence
+            .iter()
+            .any(|e| e.contains("EDAC counters zero")));
     }
 
     #[test]

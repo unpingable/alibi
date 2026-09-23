@@ -1,5 +1,7 @@
-use crate::collect::Facts;
-use crate::eval::{base_verdict, patterns, Evaluator, Finding, Verdict};
+use crate::collect::{Facts, SourceId};
+use crate::eval::{base_verdict, patterns, Evaluator, Finding, SourceRole, Verdict};
+
+const SOURCES: &[SourceRole] = &[SourceRole::required(SourceId::KernelLog)];
 
 pub struct KernelScream;
 
@@ -8,7 +10,11 @@ impl Evaluator for KernelScream {
         "kernel-scream"
     }
 
-    fn evaluate(&self, facts: &Facts) -> Finding {
+    fn source_roles(&self) -> &'static [SourceRole] {
+        SOURCES
+    }
+
+    fn evaluate_evidence(&self, facts: &Facts) -> Finding {
         let mut finding = Finding::new(self.accusation());
         let mut required_failures = Vec::new();
         let mut total = 0usize;

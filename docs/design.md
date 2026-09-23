@@ -1,6 +1,6 @@
-# Alibi — design note (V0)
+# Alibi — design note
 
-Status: normative for V0. Where code and this note disagree, fix one of them deliberately.
+Status: normative. Where code and this note disagree, fix one of them deliberately.
 
 ## 1. What Alibi is
 
@@ -37,16 +37,19 @@ Each accusation (failure class) produces exactly one terminal verdict:
 
 | Verdict | Meaning |
 |---|---|
-| `CLEAR` | Every **required** evidence source for the class was collected successfully, and no collected evidence indicates the failure class. |
-| `DEGRADED` | Collected evidence contains at least one positive indication of the failure class. |
-| `UNKNOWN` | No indication was found, but at least one **required** evidence source was unavailable, unsupported, inaccessible, or malformed. Innocence was not established. |
+| `CLEAR` | All **required** evidence sources were complete and no collected evidence indicates the failure class. |
+| `DEGRADED` | Collected evidence contains at least one positive indication of the failure class, including retained evidence from a partial source. |
+| `UNKNOWN` | No indication was found but at least one **required** evidence source was unavailable, unsupported, inaccessible, malformed, or incomplete; innocence was not established. |
 | `NOT_APPLICABLE` | The accusation is semantically void on this host (V0 uses this only for `network-choke-point` on hosts with zero non-loopback interfaces). |
 
 Rules:
 
-- Sources are **required** or **optional** per class (§6). Optional-source failure is
-  recorded in the finding's `skipped` list and never blocks `CLEAR`; required-source
-  failure forces `UNKNOWN` unless an indication forces `DEGRADED`.
+- Every finding declares each source's role as **required** or **supporting** (§6).
+  Supporting-source failure is recorded in the finding's `skipped` list and never
+  blocks `CLEAR`; required-source failure or incompleteness forces `UNKNOWN` unless
+  an indication forces `DEGRADED`.
+- Partial source values are retained. Positive retained evidence can establish
+  `DEGRADED`; partial required evidence cannot establish `CLEAR`.
 - `DEGRADED` outranks source failure: if evidence shows the failure, say so, and
   still record what could not be checked.
 - "No evidence of failure" never silently becomes "healthy". Collection failure is
@@ -58,21 +61,30 @@ Rules:
 - Exit codes: `0` innocence established; `1` any `DEGRADED`; `2` otherwise any
   `UNKNOWN`; `64` CLI usage error.
 
-## 4. MTTI semantics
+## 4. Timing and MTTI semantics
 
-- `t0` = interrogation start (immediately after CLI parsing).
-- Each finding carries `time_to_verdict`: duration from `t0` until the evaluator
-  returned a terminal verdict for that accusation. Collection is shared across
-  classes and runs first, so per-class times include amortized collection time.
-- Receipt `mtti` = duration from `t0` until **every requested accusation** reached a
-  terminal verdict (equivalently: max of per-finding times). Any of `CLEAR`,
-  `DEGRADED`, `UNKNOWN`, `NOT_APPLICABLE` ends the clock for that class.
-- **`UNKNOWN` ends the clock but does not establish innocence.** Whole-host MTTI is
-  therefore "time to a bounded conclusion", not "time to a clean bill of health".
-  A receipt full of `UNKNOWN` is fast and useless; the envelope (§5) makes that
-  visible instead of hiding it in the number.
-- The receipt embeds these semantics as machine-readable strings so later
-  fleet/incident tooling consumes the same definitions.
+- `t0` is one monotonic interrogation start, immediately after CLI parsing. Wall
+  time is used only for the receipt's RFC 3339 `started_at`.
+- Each finding carries `decided_at_ms`: duration from `t0` until its evaluator
+  returned a terminal verdict. It is present for every verdict.
+- Each finding also carries `innocence_at_ms`. It equals `decided_at_ms` for a
+  `CLEAR` finding and is `null` for `DEGRADED`, `UNKNOWN`, and
+  `NOT_APPLICABLE`. Semantic non-applicability is not itself an exoneration event.
+- `decision_latency_ms` is the maximum `decided_at_ms` across requested
+  accusations. It is always present; a terminal `UNKNOWN` or `DEGRADED` is a
+  decision even though it is not innocence.
+- `mtti_ms` is numeric only if every requested accusation is `CLEAR` or
+  `NOT_APPLICABLE`; otherwise it is `null`. When innocence is established, it is
+  the time when the last accusation was cleared or established semantically void:
+  the maximum `decided_at_ms` across those findings.
+- `interrogation_complete_ms` covers collection and evaluation immediately before
+  receipt construction. Serialization and output I/O are excluded. It can be
+  later than the last decision only if later work is contextual and incapable of
+  changing an already recorded verdict.
+- Evidence capable of changing a verdict must finish before that verdict. This
+  prevents an early `CLEAR` from being overturned by a late required source.
+- The receipt embeds these definitions as machine-readable strings so downstream
+  tooling consumes the same semantics.
 
 ## 5. Architecture
 
@@ -82,10 +94,15 @@ Deliberately boring:
 collector → normalized facts (+ per-source status) → failure-class evaluator → finding → receipt
 ```
 
-- **Collection** (`collect`): reads `/proc`, `/sys`, and a small set of standard
-  tools (`dmesg`/`journalctl`, `df`) into typed facts. Every source yields
-  `Source<T> { status, value, detail, method, elapsed }` with
-  `status ∈ ok | unavailable | unsupported | malformed`. Collectors never interpret.
+- **Collection** (`collect`): plans the minimum source set needed for the selected
+  accusations, then reads `/proc`, `/sys`, and a small set of standard tools
+  (`dmesg`/`journalctl`, `df`) into typed facts. Unrequested collectors neither run
+  nor appear in the receipt. A source records status
+  (`ok | unavailable | unsupported | malformed`), completeness
+  (`complete | partial | none`), retained typed values, detail, method, elapsed
+  time, monotonic completion offset, and a sampling window when applicable.
+  Collectors never interpret. Dependencies are explicit: for example, filesystem
+  usage collection consumes the mount set rather than rediscovering it.
 - **Evaluation** (`eval`): pure functions `facts → Finding`. No I/O, no command
   parsing. Fully fixture-testable. A shared, explicit substring-pattern table tags
   kernel-log lines to failure classes; no regex engine. Patterns carry per-pattern
@@ -96,17 +113,20 @@ collector → normalized facts (+ per-source status) → failure-class evaluator
 - **Presentation** (`receipt`): human renderer, zero-dependency JSON emitter.
   Verdict logic never contains parsing; parsing never contains verdicts.
 
-The **interrogation envelope** is recorded on every receipt: each source's name,
-status, method, elapsed time, and the evidence window (boot time from
-`/proc/stat` btime; kernel-log acquisition method). Alibi never says "this machine
-is healthy"; it says "within this explicitly described envelope, no evidence
-supports these named accusations."
+The **interrogation envelope** is recorded on every receipt: each planned source's
+name, status, completeness, method, elapsed time, monotonic completion offset, and
+bounded sample window where applicable (plus boot time from `/proc/stat` btime).
+Each finding separately records its source names and their required or supporting
+roles. Alibi never says "this machine is healthy"; it says "within this explicitly
+described envelope, no evidence supports these named accusations."
 
-Kernel-log acquisition: try `dmesg`, fall back to `journalctl -k -b --no-pager`,
+Kernel-log acquisition: try `dmesg`, fall back to
+`journalctl -k -b --no-pager --quiet`,
 else `unavailable` (e.g. `kernel.dmesg_restrict=1` and no journal access — common
 for unprivileged users; run with sufficient privilege for a full envelope). Every
-external command runs under a hard timeout; the whole interrogation stays
-interactive-scale (target ≤ ~3 s, dominated by the network delta window).
+external command runs under a hard timeout. The whole interrogation stays
+interactive-scale; the two-second network delta window is paid only when
+`network-choke-point` is selected.
 
 ## 6. Failure classes (V0)
 
@@ -115,7 +135,7 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
 ### kernel-scream
 *Has the kernel/hardware been screaming while monitoring stayed quiet?*
 
-- Required: kernel log. Optional: none in V0 (machine-check sysfs noted as future).
+- Required: kernel log. Supporting: none in V0 (machine-check sysfs noted as future).
 - Indications (log patterns): kernel panic / Oops / BUG / general protection fault;
   soft/hard lockup and stall reports; MCE / "Hardware Error"; PCIe AER errors;
   serious block I/O errors; filesystem errors (shared with silent-killer).
@@ -162,7 +182,7 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
 *Is there obvious host-local network pathology?*
 
 - Required: interface facts (`/sys/class/net`, two samples 2 s apart), route tables
-  (`/proc/net/route`, `/proc/net/ipv6_route`). Optional: conntrack
+  (`/proc/net/route`, `/proc/net/ipv6_route`). Supporting: conntrack
   (`/proc/sys/net/netfilter/nf_conntrack_{count,max}`), kernel log (link flaps,
   conntrack-full).
 - Indications: RX/TX error counter delta > 0 across the sample window; RX/TX drop
@@ -200,7 +220,9 @@ Checks that cannot support their claimed verdict are worse than no check. V0 rul
    link-state transitions are the signal.
 10. **Default-route absence is an interpretation, not a fact of failure.** It is an
     indication with explicit wording, because most general-purpose hosts have one.
-11. **Whole-host MTTI is bounded-conclusion time, not health certification** (§4).
+11. **A terminal decision is not necessarily innocence.** Decision latency is
+    always reported; MTTI is unavailable when any requested accusation is
+    `DEGRADED` or `UNKNOWN` (§4).
 
 ## 8. CLI and output contract
 
@@ -213,20 +235,25 @@ alibi --version                       # implementation version (CARGO_PKG_VERSIO
 ```
 
 Human default is one line per accusation plus an overall verdict line, per the
-project seed. The JSON receipt is the stable interface: additive changes only,
-field removals/renames are breaking. Every receipt declares
-`"receipt_version": 1` (an integer bumped on any breaking change; additive
-changes may keep the version) and the producing `version`. The serialization
-is pinned by a golden contract test (`tests/golden/receipt_v1.json`); a diff
-against the golden means the contract changed and must be regenerated
-deliberately, never casually. This is intentionality, not a long-term
-compatibility promise. Top level: `tool`, `version`, `receipt_version`,
-`host`,
-`started_at` (RFC 3339 UTC), `elapsed_ms`, `mtti_ms`, `innocence_established`,
-`verdict`, `findings[]` (accusation, verdict, summary, indications, evidence,
-skipped, time_to_verdict_ms), `envelope` (boot_time, sources[] with status /
-method / detail / elapsed_ms), `semantics` (machine-readable verdict/MTTI
-definitions).
+project seed. The JSON receipt is the stable interface: additive changes only;
+field removals, renames, and type changes are breaking. Every receipt declares
+`"receipt_version": 2` and the producing `version`. V2 deliberately replaces
+V1's unconditional bounded-conclusion `mtti_ms`, finding
+`time_to_verdict_ms`, flat source envelope, and top-level `elapsed_ms`.
+
+The serialization is pinned by a golden contract test
+(`tests/golden/receipt_v2.json`); a diff against the golden means the contract
+changed and must be regenerated deliberately, never casually. This is
+intentionality, not a long-term compatibility promise. Top level: `tool`,
+`version`, `receipt_version`, `host`, `started_at` (RFC 3339 UTC),
+`interrogation_complete_ms`, `decision_latency_ms`, nullable `mtti_ms`,
+`innocence_established`, `verdict`, `findings[]`, `envelope`, and `semantics`.
+Each finding includes accusation, verdict, summary, indications, evidence,
+skipped, `decided_at_ms`, nullable `innocence_at_ms`, and `sources[]` entries
+with a name and `required`/`supporting` role. Envelope source entries contain
+status, completeness, method/detail where available, `elapsed_ms`,
+`completed_at_ms`, and an optional monotonic `window` with `started_at_ms`,
+`ended_at_ms`, and `duration_ms`.
 
 ## 9. Implementation choice
 
@@ -241,9 +268,12 @@ test` for everything, no dependency supply chain. Decision made; moving on.
 
 Evaluators are pure functions over facts — exercised with in-code fixtures:
 clean evidence, obvious degradation, ambiguous evidence, unavailable/unsupported
-subsystems, malformed collector input. Parsers are tested against recorded
-command/file samples (including pathological spacing and junk). The JSON emitter
-and RFC 3339 clock conversion are unit-tested. **Mandated test:** kernel-log
+subsystems, malformed and partial normalized facts, source disappearance, and
+counter reset. Parsers are tested against recorded command/file samples
+(including pathological spacing and junk). Focused pure assembly seams cover
+evaluation and receipt construction. General filesystem, command, sleep, and
+clock injection, along with partial mount parsing, remain explicitly deferred.
+The JSON emitter and RFC 3339 clock conversion are unit-tested. **Mandated test:** kernel-log
 collection failure yields `kernel-scream: UNKNOWN`, never `CLEAR`.
 
 ## 11. Later directions (not V0)

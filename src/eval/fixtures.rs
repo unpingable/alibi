@@ -1,6 +1,7 @@
 use crate::collect::net::Counters;
 use crate::collect::{
-    Conntrack, Edac, Facts, FsUsage, Iface, KernelLog, Mount, NetFacts, RouteFacts, Source,
+    Conntrack, Edac, EdacController, Facts, FsCapacity, FsUsage, Iface, KernelLog, Mount, NetFacts,
+    RouteFacts, Source,
 };
 use std::time::Duration;
 
@@ -51,22 +52,34 @@ pub fn clean_facts() -> Facts {
             FsUsage {
                 device: "/dev/sda1".to_string(),
                 mountpoint: "/".to_string(),
-                total_bytes: 1000,
-                free_bytes: 500,
-                total_inodes: 1000,
-                free_inodes: 900,
+                bytes: Some(FsCapacity {
+                    total: 1000,
+                    free: 500,
+                }),
+                inodes: Some(FsCapacity {
+                    total: 1000,
+                    free: 900,
+                }),
             },
             FsUsage {
                 device: "tmpfs".to_string(),
                 mountpoint: "/tmp".to_string(),
-                total_bytes: 1000,
-                free_bytes: 800,
-                total_inodes: 1000,
-                free_inodes: 999,
+                bytes: Some(FsCapacity {
+                    total: 1000,
+                    free: 800,
+                }),
+                inodes: Some(FsCapacity {
+                    total: 1000,
+                    free: 999,
+                }),
             },
         ]),
         edac: src_ok(Edac {
-            controllers: vec![("mc0".to_string(), 0, 0)],
+            controllers: vec![EdacController {
+                name: "mc0".to_string(),
+                ue: Some(0),
+                ce: Some(0),
+            }],
         }),
         net: src_ok(NetFacts {
             interfaces: vec![Iface {

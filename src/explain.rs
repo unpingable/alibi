@@ -16,7 +16,7 @@ accuses: serious kernel/hardware events in the kernel log: panic, oops,
   machine checks (\"Hardware Error\"), PCIe AER errors, block I/O errors,
   and filesystem errors (shared with silent-killer).
 required evidence: kernel log (dmesg, falling back to journalctl -k -b).
-optional evidence: none in V0.
+supporting evidence: none in V0.
 CLEAR: the kernel log was read and no serious-event patterns matched.
 DEGRADED: at least one serious kernel/hardware event was found.
 UNKNOWN: the kernel log could not be read (e.g. kernel.dmesg_restrict=1
@@ -33,7 +33,7 @@ accuses: write-capable filesystems (ext2/3/4, xfs, btrfs, f2fs, jfs,
   the kernel log; space or inode free at or below 5% on a material
   mount (write-capable or tmpfs).
 required evidence: /proc/self/mounts, df space/inode facts, kernel log.
-optional evidence: none in V0.
+supporting evidence: none in V0.
 CLEAR: material mounts are writable, no journal/fs errors, no critical
   space or inode exhaustion.
 DEGRADED: at least one positive indication; a deliberately read-only
@@ -52,7 +52,7 @@ accuses: memory integrity failure — EDAC uncorrected errors (severe),
   kernel-log EDAC / \"Hardware Error\" / memory-failure patterns.
 required evidence: EDAC sysfs (/sys/devices/system/edac/mc/mc*/ue_count
   and ce_count), kernel log.
-optional evidence: none in V0.
+supporting evidence: none in V0.
 CLEAR: EDAC counters are zero; no kernel-reported memory errors.
 DEGRADED: uncorrected or corrected errors present, or matching log lines.
 UNKNOWN: the platform exposes no EDAC (most VMs) — the hypervisor owns
@@ -70,7 +70,7 @@ accuses: host-local network pathology — RX/TX error or drop deltas over
   usage at or above 90% of max.
 required evidence: /sys/class/net (two samples 2 s apart), /proc/net/route
   and /proc/net/ipv6_route.
-optional evidence: conntrack counts, kernel log (link flaps, table-full).
+supporting evidence: conntrack counts, kernel log (link flaps, table-full).
 CLEAR: no error/drop deltas, no flap storm, a default route exists, and
   conntrack (when present) is below threshold.
 DEGRADED: at least one positive indication; counters are cumulative, so

@@ -11,22 +11,29 @@ receipt, and before sharing one.
 > the machine is universally healthy.
 
 `CLEAR` is bounded exoneration, not health attestation. Every receipt records
-its own envelope — evidence sources, acquisition methods, the boot window, and
+its own envelope — evidence-source roles and completeness, acquisition methods,
+collection completion offsets, bounded sample windows, the boot window, and
 everything that could not be checked — so the bound is always visible on the
 receipt itself. If a receipt does not show the envelope, it is not an Alibi
 receipt.
+
+Sources are planned from the requested accusations. A receipt for only
+`kernel-scream`, for example, does not run the unrelated two-second network
+sample and does not list network sources. Within a finding, a required source
+must be complete before `CLEAR`; a supporting source adds context or can provide
+positive evidence, but its absence does not block `CLEAR`.
 
 ## Platform assumptions
 
 - Linux only. Facts come from `/proc`, `/sys`, and a small set of standard
   tools (`dmesg`, `journalctl`, `df`).
 - No systemd is required, but the kernel-log fallback prefers it: Alibi tries
-  `dmesg` first, then `journalctl -k -b`. On non-systemd hosts without dmesg
-  access, kernel-log evidence is unavailable and the affected accusations
-  report `UNKNOWN`.
-- The network evidence window is a 2-second counter sample. It is part of the
-  envelope: Alibi detects error/drop deltas across that window, not trends
-  over uptime.
+  `dmesg` first, then `journalctl -k -b --no-pager --quiet`. On non-systemd
+  hosts without dmesg access, kernel-log evidence is unavailable and the
+  affected accusations report `UNKNOWN`.
+- The network evidence window is a bounded counter sample whose actual monotonic
+  start, end, and duration are part of the envelope. Alibi detects error/drop
+  deltas across that window, not trends over uptime.
 - V0 performs **no remediation** (strictly read-only) and **no active network
   probes** — no pings, no DNS lookups, no synthetic traffic of any kind.
 
@@ -52,12 +59,18 @@ receipt about a smaller envelope.
 
 `UNKNOWN` means innocence was **not established**: evidence required to
 exonerate the host was unavailable, unsupported on this platform, inaccessible,
-or malformed. It is not a soft pass and not a failure; it is the explicit
+malformed, or incomplete. It is not a soft pass and not a failure; it is the explicit
 boundary of what Alibi could check. A receipt full of `UNKNOWN` is a statement
 about the envelope, not about the host.
 
-`UNKNOWN` still ends the MTTI clock (the interrogation reached a bounded
-conclusion), but a run containing any `UNKNOWN` never reports
+A partial source is not discarded. Its retained values can establish
+`DEGRADED` when they contain positive evidence. If they do not, a partial
+required source produces `UNKNOWN`, never `CLEAR`. The envelope distinguishes
+`complete`, `partial`, and `none` so consumers do not have to infer this boundary
+from prose.
+
+`UNKNOWN` ends the decision clock, but not the innocence clock. A run containing
+any `UNKNOWN` reports `mtti_ms: null` and never reports
 `innocence_established: true`.
 
 ## Receipt sensitivity
@@ -76,11 +89,12 @@ or `ip -s link` dumps:
 
 ## MTTI in one paragraph
 
-Each finding carries `time_to_verdict` — seconds from interrogation start
-until that accusation reached a terminal verdict. The receipt's `mtti` is when
-**every** requested accusation terminated. Any terminal verdict (`CLEAR`,
-`DEGRADED`, `UNKNOWN`, `NOT_APPLICABLE`) ends the clock; `UNKNOWN` ends it
-without establishing innocence. Whole-host MTTI is therefore "time to a
-bounded conclusion", meaningful only alongside the envelope and
-`innocence_established`. See [design.md](design.md) §4 for the normative
+Each finding carries `decided_at_ms`, measured from one monotonic interrogation
+start until that accusation reached a terminal verdict. A `CLEAR` finding also
+has the same value in `innocence_at_ms`; other verdicts use `null` there. The
+receipt's `decision_latency_ms` is when every requested accusation terminated.
+Its `mtti_ms` is numeric only when every finding is `CLEAR` or
+`NOT_APPLICABLE`; otherwise it is `null`. `interrogation_complete_ms` records
+when all collection and evaluation finished, before receipt construction and
+excluding serialization/output. See [design.md](design.md) §4 for the normative
 semantics.

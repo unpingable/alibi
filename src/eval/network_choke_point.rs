@@ -1,5 +1,14 @@
-use crate::collect::{Facts, Iface, Status};
-use crate::eval::{base_verdict, first_plus_more, patterns, Evaluator, Finding, Verdict};
+use crate::collect::{Facts, Iface, SourceId, Status};
+use crate::eval::{
+    base_verdict, first_plus_more, patterns, Evaluator, Finding, SourceRole, Verdict,
+};
+
+const SOURCES: &[SourceRole] = &[
+    SourceRole::required(SourceId::Net),
+    SourceRole::required(SourceId::Routes),
+    SourceRole::supporting(SourceId::Conntrack),
+    SourceRole::supporting(SourceId::KernelLog),
+];
 
 pub struct NetworkChokePoint;
 
@@ -8,7 +17,11 @@ impl Evaluator for NetworkChokePoint {
         "network-choke-point"
     }
 
-    fn evaluate(&self, facts: &Facts) -> Finding {
+    fn source_roles(&self) -> &'static [SourceRole] {
+        SOURCES
+    }
+
+    fn evaluate_evidence(&self, facts: &Facts) -> Finding {
         let mut finding = Finding::new(self.accusation());
         let mut required_failures: Vec<String> = Vec::new();
 
@@ -16,6 +29,7 @@ impl Evaluator for NetworkChokePoint {
             if net.interfaces.is_empty() {
                 finding.verdict = Verdict::NotApplicable;
                 finding.summary = "no non-loopback interfaces on this host".to_string();
+                finding.source_roles = vec![SourceRole::required(SourceId::Net)];
                 return finding;
             }
         }
@@ -24,20 +38,25 @@ impl Evaluator for NetworkChokePoint {
             Some(net) => {
                 let window = net.sample_window.as_secs();
                 for iface in &net.interfaces {
-                    for (label, first, second) in [
-                        ("RX errors", iface.first.rx_errors, iface.second.rx_errors),
-                        ("TX errors", iface.first.tx_errors, iface.second.tx_errors),
-                        ("RX drops", iface.first.rx_dropped, iface.second.rx_dropped),
-                        ("TX drops", iface.first.tx_dropped, iface.second.tx_dropped),
-                    ] {
-                        if let (Some(a), Some(b)) = (first, second) {
-                            let delta = b.saturating_sub(a);
-                            if delta > 0 {
-                                finding.indications.push(format!(
-                                    "{}: {} +{} in {}s window",
-                                    iface.name, label, delta, window
-                                ));
+                    for (label, first, second) in required_counter_pairs(iface) {
+                        match (first, second) {
+                            (Some(a), Some(b)) if b >= a => {
+                                let delta = b - a;
+                                if delta > 0 {
+                                    finding.indications.push(format!(
+                                        "{}: {} +{} in {}s window",
+                                        iface.name, label, delta, window
+                                    ));
+                                }
                             }
+                            (Some(a), Some(b)) => required_failures.push(format!(
+                                "{}: {} counter decreased from {} to {}",
+                                iface.name, label, a, b
+                            )),
+                            _ => required_failures.push(format!(
+                                "{}: {} counter sample incomplete",
+                                iface.name, label
+                            )),
                         }
                     }
                     finding.evidence.push(iface_evidence(iface, window));
@@ -55,12 +74,12 @@ impl Evaluator for NetworkChokePoint {
 
         match facts.routes.get() {
             Some(routes) => {
-                if !routes.v4_default && !routes.v6_default {
+                if facts.routes.is_complete() && !routes.v4_default && !routes.v6_default {
                     finding.indications.push(
                         "no default route in IPv4 or IPv6 tables (expected on most general-purpose hosts)"
                             .to_string(),
                     );
-                } else {
+                } else if routes.v4_default || routes.v6_default {
                     let mut families = Vec::new();
                     if routes.v4_default {
                         families.push("IPv4");
@@ -151,6 +170,15 @@ impl Evaluator for NetworkChokePoint {
     }
 }
 
+fn required_counter_pairs(iface: &Iface) -> [(&'static str, Option<u64>, Option<u64>); 4] {
+    [
+        ("RX errors", iface.first.rx_errors, iface.second.rx_errors),
+        ("TX errors", iface.first.tx_errors, iface.second.tx_errors),
+        ("RX drops", iface.first.rx_dropped, iface.second.rx_dropped),
+        ("TX drops", iface.first.tx_dropped, iface.second.tx_dropped),
+    ]
+}
+
 fn pct_of(count: u64, max: u64) -> u64 {
     if max == 0 {
         return 0;
@@ -158,10 +186,11 @@ fn pct_of(count: u64, max: u64) -> u64 {
     ((count as u128) * 100 / max as u128) as u64
 }
 
-fn counter_delta(first: Option<u64>, second: Option<u64>) -> u64 {
+fn counter_delta(first: Option<u64>, second: Option<u64>) -> String {
     match (first, second) {
-        (Some(a), Some(b)) => b.saturating_sub(a),
-        _ => 0,
+        (Some(a), Some(b)) if b >= a => format!("+{}", b - a),
+        (Some(_), Some(_)) => "reset".to_string(),
+        _ => "unavailable".to_string(),
     }
 }
 
@@ -179,7 +208,7 @@ fn iface_evidence(iface: &Iface, window_secs: u64) -> String {
     let rx = counter_delta(iface.first.rx_packets, iface.second.rx_packets);
     let tx = counter_delta(iface.first.tx_packets, iface.second.tx_packets);
     format!(
-        "{}: operstate={} {} {}; +{} rx/+{} tx packets in {}s window",
+        "{}: operstate={} {} {}; rx packets {}, tx packets {} in {}s window",
         iface.name, iface.operstate, carrier, kind, rx, tx, window_secs
     )
 }
@@ -187,7 +216,7 @@ fn iface_evidence(iface: &Iface, window_secs: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::collect::{Conntrack, KernelLog, RouteFacts, Source};
+    use crate::collect::{Conntrack, KernelLog, NetFacts, RouteFacts, Source};
     use crate::eval::fixtures::{self, src_ok};
     use std::time::Duration;
 
@@ -263,6 +292,115 @@ mod tests {
         );
         let finding = NetworkChokePoint.evaluate(&facts);
         assert_eq!(finding.verdict, Verdict::Unknown);
+    }
+
+    #[test]
+    fn missing_required_counter_cannot_clear() {
+        let mut facts = fixtures::clean_facts();
+        facts.net.value.as_mut().unwrap().interfaces[0]
+            .second
+            .rx_errors = None;
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+        assert!(finding.summary.contains("counter sample incomplete"));
+    }
+
+    #[test]
+    fn positive_counter_survives_another_counter_failure() {
+        let mut facts = fixtures::clean_facts();
+        let iface = &mut facts.net.value.as_mut().unwrap().interfaces[0];
+        iface.second.rx_errors = Some(4);
+        iface.second.tx_dropped = None;
+        facts.net.completeness = crate::collect::Completeness::Partial;
+        facts.net.status = Status::Unavailable;
+        facts.net.detail = Some("tx_dropped disappeared".to_string());
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Degraded);
+        assert!(finding
+            .indications
+            .iter()
+            .any(|i| i.contains("RX errors +4")));
+    }
+
+    #[test]
+    fn optional_packet_deltas_report_unavailable_and_reset() {
+        let mut facts = fixtures::clean_facts();
+        let iface = &mut facts.net.value.as_mut().unwrap().interfaces[0];
+        iface.second.rx_packets = None;
+        iface.first.tx_packets = Some(9);
+        iface.second.tx_packets = Some(2);
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Clear);
+        assert!(finding
+            .evidence
+            .iter()
+            .any(|e| { e.contains("rx packets unavailable") && e.contains("tx packets reset") }));
+    }
+
+    #[test]
+    fn counter_reset_cannot_clear() {
+        let mut facts = fixtures::clean_facts();
+        let iface = &mut facts.net.value.as_mut().unwrap().interfaces[0];
+        iface.first.rx_errors = Some(9);
+        iface.second.rx_errors = Some(2);
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+        assert!(finding.summary.contains("counter decreased"));
+    }
+
+    #[test]
+    fn partial_empty_interface_enumeration_is_unknown_not_not_applicable() {
+        let mut facts = fixtures::clean_facts();
+        facts.net = Source::partial(
+            NetFacts {
+                interfaces: vec![],
+                sample_window: Duration::from_secs(2),
+            },
+            Status::Unavailable,
+            "/sys/class/net: directory entry disappeared",
+            "/sys/class/net",
+            Duration::from_millis(1),
+        );
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+    }
+
+    #[test]
+    fn complete_empty_interface_domain_is_not_applicable_even_if_routes_unavailable() {
+        let mut facts = fixtures::clean_facts();
+        facts.net = src_ok(NetFacts {
+            interfaces: vec![],
+            sample_window: Duration::from_secs(2),
+        });
+        facts.routes = Source::failed(
+            Status::Unavailable,
+            "/proc/net/route: permission denied",
+            Duration::from_millis(1),
+        );
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::NotApplicable);
+    }
+
+    #[test]
+    fn partial_route_tables_do_not_false_degrade_or_clear() {
+        let mut facts = fixtures::clean_facts();
+        facts.routes = Source::partial(
+            RouteFacts {
+                v4_default: false,
+                v6_default: false,
+            },
+            Status::Malformed,
+            "/proc/net/ipv6_route: malformed row",
+            "/proc/net/route; /proc/net/ipv6_route",
+            Duration::from_millis(1),
+        );
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+        assert!(!finding.indications.iter().any(|i| i.contains("no default")));
+        assert!(!finding
+            .evidence
+            .iter()
+            .any(|e| e.contains("default route present ()")));
     }
 
     #[test]
