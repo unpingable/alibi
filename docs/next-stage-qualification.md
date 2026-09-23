@@ -96,6 +96,43 @@ remaining partial-evidence losses and a journal no-entry false-`CLEAR` path.
 Those findings were repaired and the second review found no remaining
 false-`CLEAR` blocker.
 
+## Post-review repairs (same day)
+
+An independent review of the qualified commit found five accusation-level
+paths where `CLEAR` could be issued although a named indication class was
+undetectable. None involved the centralized required-source guard, which held.
+All five were repaired narrowly, without a receipt-contract change:
+
+1. Route parsers counted rejecting default routes (`RTF_REJECT`), including
+   the kernel's always-present IPv6 null entry, as usable default routes, so
+   the no-default-route indication could never fire on an IPv6-enabled host.
+   Both parsers now ignore rejecting rows, IPv4 ignores device-less rows
+   (`blackhole default`), and malformed flags fail closed.
+2. `network-choke-point` treated the kernel log and conntrack as supporting,
+   so a denied log or denied/malformed conntrack turned a would-be `DEGRADED`
+   (flap storm, table-full, table pressure) into `CLEAR`. Both are now
+   required; conntrack is required only while the subsystem is present, and
+   an absent subsystem is recorded as not applicable (`supporting`, not
+   present) rather than blocking `CLEAR`.
+3. `silent-killer` issued a vacuous `CLEAR` when the root filesystem was of a
+   type outside the mount model (ZFS, overlay, network filesystems) or absent
+   from the table. The collector now retains the root row regardless of type,
+   and the evaluator requires the root to be inside the model; otherwise
+   `UNKNOWN`. This is an epistemic repair, not filesystem-support expansion.
+4. The XFS forced-shutdown message (`Shutting down filesystem.`) matched no
+   pattern although the mount stays `rw`; it is now a silent-killer and
+   kernel-scream indication.
+5. Link-down messages from phylib/r8169 (`Link is Down`), tg3/bnx2x
+   (`Link is down`), mlx4 (`Link Down`) and mlx5 (`Link down`) did not match
+   the case-sensitive flap needles; those exact forms were added.
+
+Test count after repair: 104 (102 unit, 2 golden). The V2 golden is unchanged.
+Lower-priority review observations (human receipt omits the envelope,
+`mtti_ms` equals `decision_latency_ms` under sequential collection, duplicated
+`skipped` entries after a guard flip, non-hard post-kill timeout, permanent
+`UNKNOWN` on `ipv6.disable=1` and bonding hosts, documentation drift) remain
+deferred and are not part of this repair.
+
 ## Unresolved epistemic limitations
 
 - Kernel-log acquisition still cannot prove that the ring or journal covers the

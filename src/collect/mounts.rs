@@ -53,14 +53,19 @@ pub fn parse_mounts(content: &str) -> Result<(Vec<Mount>, usize), String> {
         let fstype = fields[2].to_string();
         let write_capable = WRITE_CAPABLE_FSTYPES.contains(&fstype.as_str());
         let material = write_capable || fstype == "tmpfs";
-        if !material {
+        let mountpoint = unescape(fields[1]);
+        // The root row is always retained, even when its filesystem type is
+        // outside the model, so evaluators can tell "root is a type we can
+        // reason about" from "root is something else" (or missing entirely).
+        // Non-root, non-material rows are dropped and only counted.
+        if !material && mountpoint != "/" {
             excluded += 1;
             continue;
         }
         let ro = fields[3].split(',').any(|opt| opt == "ro");
         mounts.push(Mount {
             device: unescape(fields[0]),
-            mountpoint: unescape(fields[1]),
+            mountpoint,
             fstype,
             ro,
             write_capable,
@@ -139,5 +144,38 @@ tmpfs /run tmpfs rw,nosuid,nodev 0 0
     #[test]
     fn malformed_line_fails_whole_parse() {
         assert!(parse_mounts("garbage line\n").is_err());
+    }
+
+    #[test]
+    fn unsupported_root_row_is_retained_as_non_material() {
+        for (table, fstype) in [
+            (
+                "rpool/ROOT/ubuntu / zfs rw,relatime,xattr,posixacl 0 0\nproc /proc proc rw 0 0\n",
+                "zfs",
+            ),
+            (
+                "overlay / overlay rw,relatime,lowerdir=/l,upperdir=/u,workdir=/w 0 0\nproc /proc proc rw 0 0\nshm /dev/shm tmpfs rw 0 0\n",
+                "overlay",
+            ),
+            (
+                "10.0.0.5:/export/root / nfs4 rw,relatime,vers=4.2 0 0\nproc /proc proc rw 0 0\n",
+                "nfs4",
+            ),
+        ] {
+            let (mounts, excluded) = parse_mounts(table).unwrap();
+            let root = mounts
+                .iter()
+                .find(|m| m.mountpoint == "/")
+                .unwrap_or_else(|| panic!("{} root row dropped", fstype));
+            assert_eq!(root.fstype, fstype);
+            assert!(!root.material);
+            assert!(!root.write_capable);
+            assert_eq!(excluded, 1, "{}: only /proc is excluded", fstype);
+        }
+    }
+
+    #[test]
+    fn malformed_root_row_fails_whole_parse() {
+        assert!(parse_mounts("/dev/sda1 / ext4\nproc /proc proc rw 0 0\n").is_err());
     }
 }

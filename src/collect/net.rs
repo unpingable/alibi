@@ -283,6 +283,18 @@ pub fn has_v6_default(content: &str) -> bool {
     parse_v6_default(content).unwrap_or(false)
 }
 
+/// Route flag bit shared by `/proc/net/route` and `/proc/net/ipv6_route`:
+/// the route rejects traffic (`unreachable`, `prohibit`, or the kernel's
+/// IPv6 null entry). A rejecting default route is not a usable default route.
+const RTF_REJECT: u32 = 0x0200;
+
+fn parse_route_flags(field: &str) -> Option<u32> {
+    if field.is_empty() || !field.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    u32::from_str_radix(field, 16).ok()
+}
+
 pub fn parse_v4_default(content: &str) -> Result<bool, String> {
     let mut lines = content.lines();
     let header = lines
@@ -303,7 +315,13 @@ pub fn parse_v4_default(content: &str) -> Result<bool, String> {
         {
             return Err(format!("malformed route row: {:?}", line));
         }
-        found |= fields[1] == "00000000";
+        let flags = parse_route_flags(fields[3])
+            .ok_or_else(|| format!("malformed route row: {:?}", line))?;
+        // A default route is usable only if it does not reject traffic and has
+        // an output device. The kernel prints "*" for routes with no nexthop
+        // device (`blackhole`, which carries no RTF_REJECT, as well as
+        // `unreachable`/`prohibit`); no unicast route lacks one.
+        found |= fields[1] == "00000000" && flags & RTF_REJECT == 0 && fields[0] != "*";
     }
     Ok(found)
 }
@@ -320,7 +338,11 @@ pub fn parse_v6_default(content: &str) -> Result<bool, String> {
         {
             return Err(format!("malformed IPv6 route row: {:?}", line));
         }
-        found |= fields[0] == "00000000000000000000000000000000" && fields[1] == "00";
+        let flags = parse_route_flags(fields[8])
+            .ok_or_else(|| format!("malformed IPv6 route row: {:?}", line))?;
+        found |= fields[0] == "00000000000000000000000000000000"
+            && fields[1] == "00"
+            && flags & RTF_REJECT == 0;
     }
     Ok(found)
 }
@@ -339,11 +361,13 @@ pub fn collect_conntrack() -> Source<Conntrack> {
             );
         }
     };
+    // The count file was readable, so connection tracking is present; any
+    // failure on the max file is a collection failure, never absence.
     let max_raw = match fs::read_to_string(&max_path) {
         Ok(c) => c,
         Err(e) => {
             return Source::failed(
-                io_status(&e),
+                Status::Unavailable,
                 format!("{}: {}", max_path, e),
                 start.elapsed(),
             );
@@ -406,12 +430,76 @@ eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
         assert!(!has_v4_default("Iface\tDestination\nshort\n"));
     }
 
+    // The kernel's IPv6 null entry: `::/0` via `lo`, metric ffffffff,
+    // flags RTF_REJECT | RTF_NONEXTHOP. Present on every IPv6-enabled host.
+    const V6_NULL_ENTRY: &str = "00000000000000000000000000000000 00 00000000000000000000000000000000 00 00000000000000000000000000000000 ffffffff 00000001 00000000 00200200 lo\n";
+    // A gateway default learned by router advertisement:
+    // flags RTF_UP | RTF_GATEWAY | RTF_ADDRCONF.
+    const V6_GATEWAY_DEFAULT: &str = "00000000000000000000000000000000 00 00000000000000000000000000000000 00 fe80000000000000021b21fffe0a1b2c 00000400 00000001 00000000 00040003 eth0\n";
+    const V6_LINK_LOCAL: &str = "fe800000000000000000000000000000 40 00000000000000000000000000000000 00 00000000000000000000000000000000 00000100 00000000 00000000 00000001 eth0\n";
+
     #[test]
     fn detects_v6_default_route() {
-        let with_default = "00000000000000000000000000000000 00 00000000000000000000000000000000 00 00000000000000000000000000000000 000003e8 00000000 00000000 00000001 lo\n";
-        assert!(has_v6_default(with_default));
-        let without = "fe800000000000000000000000000000 40 00000000000000000000000000000000 00 00000000000000000000000000000000 00000100 00000000 00000000 00000001 eth0\n";
-        assert!(!has_v6_default(without));
+        let with_default = format!("{}{}", V6_LINK_LOCAL, V6_GATEWAY_DEFAULT);
+        assert!(has_v6_default(&with_default));
+        assert!(!has_v6_default(V6_LINK_LOCAL));
+    }
+
+    #[test]
+    fn ipv6_null_entry_alone_is_not_a_usable_default() {
+        let table = format!("{}{}{}", V6_NULL_ENTRY, V6_LINK_LOCAL, V6_NULL_ENTRY);
+        assert_eq!(parse_v6_default(&table), Ok(false));
+    }
+
+    #[test]
+    fn ipv6_null_entry_does_not_hide_a_real_default() {
+        let table = format!("{}{}{}", V6_NULL_ENTRY, V6_GATEWAY_DEFAULT, V6_NULL_ENTRY);
+        assert_eq!(parse_v6_default(&table), Ok(true));
+    }
+
+    #[test]
+    fn ipv4_reject_default_is_not_a_usable_default() {
+        // `ip route add unreachable default` renders as a default row with
+        // RTF_UP | RTF_REJECT and no device.
+        let reject_only = "\
+Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT
+*\t00000000\t00000000\t0201\t0\t0\t0\t00000000\t0\t0\t0
+eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
+";
+        assert_eq!(parse_v4_default(reject_only), Ok(false));
+        let reject_plus_real = format!(
+            "{}*\t00000000\t00000000\t0201\t0\t0\t0\t00000000\t0\t0\t0\n",
+            ROUTE_WITH_DEFAULT
+        );
+        assert_eq!(parse_v4_default(&reject_plus_real), Ok(true));
+    }
+
+    #[test]
+    fn ipv4_blackhole_default_is_not_a_usable_default() {
+        // `ip route add blackhole default` carries no RTF_REJECT but has no
+        // output device, which the kernel prints as "*".
+        let blackhole_only = "\
+Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT
+*\t00000000\t00000000\t0001\t0\t0\t0\t00000000\t0\t0\t0
+eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
+";
+        assert_eq!(parse_v4_default(blackhole_only), Ok(false));
+        let blackhole_plus_real = format!(
+            "{}*\t00000000\t00000000\t0001\t0\t0\t0\t00000000\t0\t0\t0\n",
+            ROUTE_WITH_DEFAULT
+        );
+        assert_eq!(parse_v4_default(&blackhole_plus_real), Ok(true));
+    }
+
+    #[test]
+    fn malformed_route_flags_fail_closed() {
+        let v4 = "\
+Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT
+eth0\t00000000\t0101A8C0\tzz\t0\t0\t100\t00000000\t0\t0\t0
+";
+        assert!(parse_v4_default(v4).is_err());
+        let v6 = V6_GATEWAY_DEFAULT.replace("00040003", "0004000g");
+        assert!(parse_v6_default(&v6).is_err());
     }
 
     #[test]

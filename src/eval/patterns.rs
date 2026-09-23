@@ -99,6 +99,14 @@ pub const PATTERNS: &[Pattern] = &[
         excludes: &[],
     },
     Pattern {
+        // xfs_do_force_shutdown: "<why> (0x..) detected at ... Shutting down
+        // filesystem." The mount stays rw, so only the log witnesses it.
+        needle: "Shutting down filesystem",
+        label: "XFS forced shutdown",
+        tags: &["kernel-scream", "silent-killer"],
+        excludes: &[],
+    },
+    Pattern {
         needle: "BTRFS: error",
         label: "btrfs error",
         tags: &["silent-killer"],
@@ -129,7 +137,35 @@ pub const PATTERNS: &[Pattern] = &[
         excludes: &[],
     },
     Pattern {
+        // phylib (r8169, stmmac, ...): "Link is Down"
+        needle: "Link is Down",
+        label: "link down event",
+        tags: &["net-down"],
+        excludes: &[],
+    },
+    Pattern {
+        // tg3, bnx2x: "Link is down"
+        needle: "Link is down",
+        label: "link down event",
+        tags: &["net-down"],
+        excludes: &[],
+    },
+    Pattern {
         needle: "link is down",
+        label: "link down event",
+        tags: &["net-down"],
+        excludes: &[],
+    },
+    Pattern {
+        // mlx4_en: "Link Down"
+        needle: "Link Down",
+        label: "link down event",
+        tags: &["net-down"],
+        excludes: &[],
+    },
+    Pattern {
+        // mlx5_core: "Link down"
+        needle: "Link down",
         label: "link down event",
         tags: &["net-down"],
         excludes: &[],
@@ -233,6 +269,43 @@ mod tests {
         let (capped, total) = matches_for(&lines, "memrot");
         assert_eq!(total, 1);
         assert_eq!(capped[0].1, "EDAC memory error report");
+    }
+
+    #[test]
+    fn xfs_forced_shutdown_matches_both_filesystem_accusations() {
+        let lines = vec![
+            "XFS (sdb1): Corruption of in-memory data (0x8) detected at xfs_trans_cancel+0x1a0/0x1b0 (fs/xfs/xfs_trans.c:1097).  Shutting down filesystem.".to_string(),
+            "XFS (sdb1): Please unmount the filesystem and rectify the problem(s)".to_string(),
+        ];
+        let (capped, total) = matches_for(&lines, "silent-killer");
+        assert_eq!(total, 1);
+        assert_eq!(capped[0].1, "XFS forced shutdown");
+        assert_eq!(matches_for(&lines, "kernel-scream").1, 1);
+        assert_eq!(matches_for(&lines, "memrot").1, 0);
+    }
+
+    #[test]
+    fn driver_link_down_forms_match_net_down() {
+        for line in [
+            "r8169 0000:07:00.0 enp7s0: Link is Down",
+            "tg3 0000:02:00.0 eth0: Link is down.",
+            "mlx4_en: eth2: Link Down",
+            "mlx5_core 0000:03:00.0 eth3: Link down",
+            "ixgbe 0000:01:00.0 eno1: NIC Link is Down",
+        ] {
+            assert_eq!(
+                line_label_for(line, "net-down"),
+                Some("link down event"),
+                "{}",
+                line
+            );
+        }
+        for line in [
+            "r8169 0000:07:00.0 enp7s0: Link is Up - 1Gbps/Full - flow control rx/tx",
+            "mlx4_en: eth2: Link Up",
+        ] {
+            assert_eq!(line_label_for(line, "net-down"), None, "{}", line);
+        }
     }
 
     #[test]

@@ -46,11 +46,13 @@ permission boundary; it records it.
 |---|---|---|
 | Kernel log | Often restricted (`kernel.dmesg_restrict=1`, journal group membership required). Alibi falls back from `dmesg` to `journalctl`; if both are denied, kernel-log evidence is unavailable. | Direct `dmesg` access; the largest single improvement in envelope coverage. |
 | Mounts, space, inodes | Fully available. | Same. |
-| Network counters, routes, conntrack | Fully available. | Same. |
+| Network counters, routes, conntrack | Normally readable. Conntrack is required whenever connection tracking is present; if its files exist but cannot be read, `network-choke-point` is `UNKNOWN`. If the subsystem is absent, that failure class is not applicable and does not block `CLEAR`. | Same. |
 | EDAC counters | Available when the platform exposes them (world-readable sysfs), but most VMs expose no EDAC at all — the hypervisor owns hardware memory integrity. | Same; privilege does not create EDAC on a VM. |
 
 Concretely: an unprivileged run on a locked-down host will typically report
-`kernel-scream` and the log-dependent parts of `silent-killer` as `UNKNOWN`.
+every accusation that requires the kernel log — `kernel-scream`,
+`silent-killer`, `memrot`, and `network-choke-point` (link flaps and
+conntrack-full events are log evidence) — as `UNKNOWN`.
 That is the tool working as designed, not malfunctioning. Run with sufficient
 privilege when you need the full envelope; treat an unprivileged receipt as a
 receipt about a smaller envelope.

@@ -32,16 +32,21 @@ accuses: write-capable filesystems (ext2/3/4, xfs, btrfs, f2fs, jfs,
   reiserfs) remounted read-only; journal/filesystem error patterns in
   the kernel log; space or inode free at or below 5% on a material
   mount (write-capable or tmpfs).
-required evidence: /proc/self/mounts, df space/inode facts, kernel log.
+required evidence: /proc/self/mounts (with the root filesystem inside the
+  mount model), df space/inode facts, kernel log.
 supporting evidence: none in V0.
-CLEAR: material mounts are writable, no journal/fs errors, no critical
-  space or inode exhaustion.
+CLEAR: the root filesystem is a type the model reasons about, material
+  mounts are writable, no journal/fs errors, no critical space or inode
+  exhaustion.
 DEGRADED: at least one positive indication; a deliberately read-only
   mount is reported with wording to that effect — the operator judges.
-UNKNOWN: mounts, df output, or the kernel log could not be collected.
+UNKNOWN: mounts, df output, or the kernel log could not be collected, or
+  the root filesystem is of a type outside the mount model (ZFS, overlay,
+  network filesystems) — its functional state cannot be excluded.
 limitations: alibi cannot know operator intent; squashfs/iso9660 and
-  pseudo filesystems are excluded as read-only-by-design; ZFS and
-  network filesystems are out of V0's mount model.
+  pseudo filesystems are excluded as read-only-by-design; ZFS, overlay
+  and network filesystems are out of V0's mount model and a root of that
+  kind yields UNKNOWN, never CLEAR.
 ";
 
 const MEMROT: &str = "\
@@ -69,13 +74,18 @@ accuses: host-local network pathology — RX/TX error or drop deltas over
   in the kernel-log window; no default route in IPv4 or IPv6; conntrack
   usage at or above 90% of max.
 required evidence: /sys/class/net (two samples 2 s apart), /proc/net/route
-  and /proc/net/ipv6_route.
-supporting evidence: conntrack counts, kernel log (link flaps, table-full).
-CLEAR: no error/drop deltas, no flap storm, a default route exists, and
-  conntrack (when present) is below threshold.
+  and /proc/net/ipv6_route, the kernel log (link flaps, table-full), and
+  conntrack counts whenever connection tracking is present on the host.
+supporting evidence: none. When the conntrack subsystem is absent (its
+  /proc/sys files do not exist) that failure class is not applicable; the
+  finding records conntrack as not present and it does not block CLEAR.
+CLEAR: no error/drop deltas, no flap storm, a usable (non-rejecting)
+  default route exists, and conntrack (when present) is below threshold.
 DEGRADED: at least one positive indication; counters are cumulative, so
   only bounded deltas verdict — lifetime totals never do.
-UNKNOWN: interface facts or route tables could not be collected.
+UNKNOWN: interface facts, route tables, or the kernel log could not be
+  collected, or conntrack is present but unreadable or malformed. Losing
+  access to evidence reduces what can be excluded; it never clears.
 NOT_APPLICABLE: no non-loopback interface exists on this host.
 limitations: passive local evidence only — V0 runs no active probes; a
   successful or failed ping proves nothing about host state. Down/unused

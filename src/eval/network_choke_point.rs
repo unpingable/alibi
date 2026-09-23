@@ -3,12 +3,33 @@ use crate::eval::{
     base_verdict, first_plus_more, patterns, Evaluator, Finding, SourceRole, Verdict,
 };
 
+// Every source here is required to exonerate a failure class the accusation
+// names: counters and routes for error/drop deltas and default-route absence,
+// the kernel log for link flaps and conntrack-full events, and conntrack
+// counts for table pressure. Conntrack is required only while connection
+// tracking is present on the host; when the subsystem is absent (files not
+// found) that failure class is not applicable and the finding records the
+// source as supporting instead. Denied or malformed conntrack is a collection
+// failure, not absence, and blocks CLEAR.
 const SOURCES: &[SourceRole] = &[
     SourceRole::required(SourceId::Net),
     SourceRole::required(SourceId::Routes),
-    SourceRole::supporting(SourceId::Conntrack),
-    SourceRole::supporting(SourceId::KernelLog),
+    SourceRole::required(SourceId::Conntrack),
+    SourceRole::required(SourceId::KernelLog),
 ];
+
+fn roles_without_conntrack_subsystem() -> Vec<SourceRole> {
+    SOURCES
+        .iter()
+        .map(|role| {
+            if role.source == SourceId::Conntrack {
+                SourceRole::supporting(SourceId::Conntrack)
+            } else {
+                *role
+            }
+        })
+        .collect()
+}
 
 pub struct NetworkChokePoint;
 
@@ -118,12 +139,15 @@ impl Evaluator for NetworkChokePoint {
                 finding
                     .skipped
                     .push("conntrack not present (no connection tracking in use)".to_string());
+                finding.source_roles = roles_without_conntrack_subsystem();
             }
             _ => {
-                finding.skipped.push(format!(
-                    "conntrack check failed: {}",
+                let msg = format!(
+                    "conntrack unavailable: {}",
                     facts.conntrack.failure_reason()
-                ));
+                );
+                required_failures.push(msg.clone());
+                finding.skipped.push(msg);
             }
         }
 
@@ -153,9 +177,12 @@ impl Evaluator for NetworkChokePoint {
                 }
             }
             None => {
-                finding
-                    .skipped
-                    .push("link-flap history unavailable".to_string());
+                let msg = format!(
+                    "kernel log unavailable: {}",
+                    facts.kernel_log.failure_reason()
+                );
+                required_failures.push(msg.clone());
+                finding.skipped.push(msg);
             }
         }
 
@@ -218,6 +245,7 @@ mod tests {
     use super::*;
     use crate::collect::{Conntrack, KernelLog, NetFacts, RouteFacts, Source};
     use crate::eval::fixtures::{self, src_ok};
+    use crate::eval::EvidenceRole;
     use std::time::Duration;
 
     #[test]
@@ -436,5 +464,156 @@ mod tests {
             .skipped
             .iter()
             .any(|s| s == "conntrack not present (no connection tracking in use)"));
+        let conntrack = finding
+            .source_roles
+            .iter()
+            .find(|r| r.source == SourceId::Conntrack)
+            .unwrap();
+        assert_eq!(conntrack.role, EvidenceRole::Supporting);
+        assert!(finding
+            .source_roles
+            .iter()
+            .filter(|r| r.source != SourceId::Conntrack)
+            .all(|r| r.role == EvidenceRole::Required));
+    }
+
+    #[test]
+    fn conntrack_is_a_required_role_when_present() {
+        let finding = NetworkChokePoint.evaluate(&fixtures::clean_facts());
+        assert!(finding
+            .source_roles
+            .iter()
+            .all(|r| r.role == EvidenceRole::Required));
+        assert!(finding
+            .source_roles
+            .iter()
+            .any(|r| r.source == SourceId::KernelLog));
+    }
+
+    fn flap_storm_log() -> Source<KernelLog> {
+        src_ok(KernelLog {
+            lines: vec![
+                "r8169 0000:07:00.0 eno1: Link is Down".to_string(),
+                "r8169 0000:07:00.0 eno1: Link is Up - 1Gbps/Full".to_string(),
+                "r8169 0000:07:00.0 eno1: Link is Down".to_string(),
+                "r8169 0000:07:00.0 eno1: Link is Up - 1Gbps/Full".to_string(),
+                "r8169 0000:07:00.0 eno1: Link is Down".to_string(),
+            ],
+            method: "dmesg".to_string(),
+        })
+    }
+
+    fn denied_log() -> Source<KernelLog> {
+        Source::failed(
+            Status::Unavailable,
+            "dmesg: read kernel buffer failed: Operation not permitted; journalctl: no entries",
+            Duration::from_millis(1),
+        )
+    }
+
+    #[test]
+    fn link_flap_storm_is_degraded_when_log_is_readable() {
+        let mut facts = fixtures::clean_facts();
+        facts.kernel_log = flap_storm_log();
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Degraded);
+        assert!(finding
+            .indications
+            .iter()
+            .any(|i| i.contains("eno1: 3 link-down events")));
+    }
+
+    #[test]
+    fn unknown_not_clear_when_kernel_log_is_denied() {
+        let mut facts = fixtures::clean_facts();
+        facts.kernel_log = denied_log();
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+        assert!(finding.summary.contains("kernel log unavailable"));
+    }
+
+    #[test]
+    fn conntrack_pressure_denied_is_unknown_not_clear() {
+        for (status, detail) in [
+            (
+                Status::Unavailable,
+                "/proc/sys/net/netfilter/nf_conntrack_count: Permission denied (os error 13)",
+            ),
+            (
+                Status::Malformed,
+                "/proc/sys/net/netfilter/nf_conntrack_max: not a number",
+            ),
+        ] {
+            let mut facts = fixtures::clean_facts();
+            facts.conntrack = Source::failed(status, detail, Duration::from_millis(1));
+            let finding = NetworkChokePoint.evaluate(&facts);
+            assert_eq!(finding.verdict, Verdict::Unknown, "{:?}", status);
+            assert!(finding.summary.contains("conntrack unavailable"));
+            assert!(finding
+                .source_roles
+                .iter()
+                .any(|r| r.source == SourceId::Conntrack && r.role == EvidenceRole::Required));
+        }
+    }
+
+    #[test]
+    fn privilege_loss_never_improves_the_verdict() {
+        // Scenario A: the only positive evidence lives in the kernel log.
+        let mut readable = fixtures::clean_facts();
+        readable.kernel_log = flap_storm_log();
+        assert_eq!(
+            NetworkChokePoint.evaluate(&readable).verdict,
+            Verdict::Degraded
+        );
+        let mut denied = fixtures::clean_facts();
+        denied.kernel_log = denied_log();
+        assert_eq!(
+            NetworkChokePoint.evaluate(&denied).verdict,
+            Verdict::Unknown
+        );
+
+        // Scenario B: the only positive evidence is conntrack pressure.
+        let mut readable = fixtures::clean_facts();
+        readable.conntrack = src_ok(Conntrack {
+            count: 95,
+            max: 100,
+        });
+        assert_eq!(
+            NetworkChokePoint.evaluate(&readable).verdict,
+            Verdict::Degraded
+        );
+        let mut denied = fixtures::clean_facts();
+        denied.conntrack = Source::failed(
+            Status::Unavailable,
+            "nf_conntrack_count: Permission denied (os error 13)",
+            Duration::from_millis(1),
+        );
+        assert_eq!(
+            NetworkChokePoint.evaluate(&denied).verdict,
+            Verdict::Unknown
+        );
+
+        // Scenario C: positive counter evidence survives losing the log and
+        // conntrack; the verdict stays DEGRADED and the losses are recorded.
+        let mut facts = fixtures::clean_facts();
+        facts.net.value.as_mut().unwrap().interfaces[0]
+            .second
+            .rx_errors = Some(5);
+        facts.kernel_log = denied_log();
+        facts.conntrack = Source::failed(
+            Status::Unavailable,
+            "nf_conntrack_count: Permission denied (os error 13)",
+            Duration::from_millis(1),
+        );
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Degraded);
+        assert!(finding
+            .skipped
+            .iter()
+            .any(|s| s.contains("kernel log unavailable")));
+        assert!(finding
+            .skipped
+            .iter()
+            .any(|s| s.contains("conntrack unavailable")));
     }
 }

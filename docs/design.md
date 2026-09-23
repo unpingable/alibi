@@ -147,7 +147,11 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
 *Is the host superficially up but functionally damaged?*
 
 - Required: mounts (`/proc/self/mounts`), space/inode facts (targeted `df` — see
-  below), kernel log.
+  below), kernel log. The root filesystem must be inside the mount model: a root
+  of a type the model does not reason about (ZFS, overlay, network filesystems)
+  or a root missing from the table is incomplete required evidence and yields
+  `UNKNOWN`, never a vacuous `CLEAR` over the remaining mounts. The root row is
+  retained by the collector for this purpose even when non-material.
 - Indications: write-capable block-backed filesystem (ext2/3/4, xfs, btrfs, f2fs,
   jfs, reiserfs) mounted `ro` — with a precision rule: a kernel `remount-ro` flips
   the whole filesystem, so an `ro` mount whose device is also mounted `rw`
@@ -155,8 +159,9 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
   is recorded as evidence, **not** an indication. Only a write-capable device with
   no `rw` mount anywhere is an indication. squashfs/iso9660 and other
   read-only-by-design fstypes are excluded. Also: kernel-log remount-ro /
-  fs-journal error patterns; space or inode free ≤ 5% on a material filesystem
-  (critically low, not merely "high usage").
+  fs-journal error / XFS forced-shutdown patterns (an XFS shutdown leaves the
+  mount `rw`, so only the log witnesses it); space or inode free ≤ 5% on a
+  material filesystem (critically low, not merely "high usage").
 - Space/inode facts come from targeted `df -P` calls against the material
   filesystems only (block-backed filesystems deduped by device; each tmpfs is
   distinct). Whole-table `df` is deliberately not used: one inaccessible unrelated
@@ -182,13 +187,22 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
 *Is there obvious host-local network pathology?*
 
 - Required: interface facts (`/sys/class/net`, two samples 2 s apart), route tables
-  (`/proc/net/route`, `/proc/net/ipv6_route`). Supporting: conntrack
-  (`/proc/sys/net/netfilter/nf_conntrack_{count,max}`), kernel log (link flaps,
-  conntrack-full).
+  (`/proc/net/route`, `/proc/net/ipv6_route`), kernel log (link flaps,
+  conntrack-full), and conntrack (`/proc/sys/net/netfilter/nf_conntrack_{count,max}`)
+  whenever connection tracking is present. Every indication class the accusation
+  names must be excludable before `CLEAR`; a denied kernel log or denied/malformed
+  conntrack therefore yields `UNKNOWN`. Conntrack is the one applicability-scoped
+  source: when its files do not exist the subsystem is absent, that failure class
+  is not applicable, and the finding records conntrack as `supporting` (not
+  present) rather than blocking `CLEAR`. Supporting otherwise: none.
 - Indications: RX/TX error counter delta > 0 across the sample window; RX/TX drop
-  delta > 0; ≥ 3 link-down events for one interface in the log window; no default
-  route in either address family (worded as interpretation — legitimate on some
-  appliances); conntrack usage ≥ 90%.
+  delta > 0; ≥ 3 link-down events for one interface in the log window; no usable
+  default route in either address family (worded as interpretation — legitimate
+  on some appliances); conntrack usage ≥ 90%.
+- A default route is usable only if it does not reject traffic and has an output
+  device: rows carrying `RTF_REJECT` (`unreachable`/`prohibit` defaults, and the
+  kernel's always-present IPv6 null entry `::/0` via `lo`) and IPv4 rows with no
+  device (`*`, e.g. `blackhole default`) are not default routes for this purpose.
 - Counters are cumulative since boot/driver load, so **absolute values never
   verdict**; only the bounded delta does. The 2 s window is part of the envelope.
 - Down/unused interfaces are normal and are evidence, not accusations.

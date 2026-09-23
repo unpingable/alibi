@@ -129,7 +129,7 @@ fn parse_dimension(
 pub fn dedupe_filesystems(mounts: &[Mount]) -> Vec<(String, String)> {
     let mut seen: Vec<String> = Vec::new();
     let mut filesystems = Vec::new();
-    for m in mounts {
+    for m in mounts.iter().filter(|m| m.material) {
         let key = if m.device.starts_with("/dev/") {
             &m.device
         } else {
@@ -347,6 +347,26 @@ Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
         assert_eq!(filesystems.len(), 2);
         assert_eq!(filesystems[0], ("/dev/sda1".to_string(), "/".to_string()));
         assert_eq!(filesystems[1], ("tmpfs".to_string(), "/tmp".to_string()));
+    }
+
+    #[test]
+    fn non_material_root_row_is_not_a_df_target() {
+        let mounts = vec![
+            Mount {
+                write_capable: false,
+                material: false,
+                ..mount("overlay", "/", "overlay", false)
+            },
+            Mount {
+                write_capable: false,
+                ..mount("shm", "/dev/shm", "tmpfs", false)
+            },
+        ];
+        let filesystems = dedupe_filesystems(&mounts);
+        assert_eq!(
+            filesystems,
+            vec![("shm".to_string(), "/dev/shm".to_string())]
+        );
     }
 
     #[test]

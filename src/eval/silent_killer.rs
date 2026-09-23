@@ -34,6 +34,30 @@ impl Evaluator for SilentKiller {
             }
         };
 
+        // The accusation is about the host's filesystems being functionally
+        // usable; the root filesystem is the one that must be in the model.
+        // A root of a type the model does not reason about (zfs, overlay,
+        // nfs, ...) or a root missing from the table is incomplete required
+        // evidence, not innocence.
+        if facts.mounts.get().is_some() {
+            match root_mount(mounts) {
+                Some(root) if root.material => {}
+                Some(root) => {
+                    let msg = format!(
+                        "root filesystem type {} is outside the mount model; functional damage cannot be excluded",
+                        root.fstype
+                    );
+                    required_failures.push(msg.clone());
+                    finding.skipped.push(msg);
+                }
+                None => {
+                    let msg = "root filesystem missing from mount table".to_string();
+                    required_failures.push(msg.clone());
+                    finding.skipped.push(msg);
+                }
+            }
+        }
+
         let domain: Vec<&Mount> = mounts
             .iter()
             .filter(|m| m.material && m.write_capable)
@@ -117,7 +141,7 @@ impl Evaluator for SilentKiller {
             Verdict::Clear => {
                 finding.summary =
                     "mounted filesystems writable; no journal/fs errors found".to_string();
-                let rw = mounts.iter().filter(|m| !m.ro).count();
+                let rw = mounts.iter().filter(|m| m.material && !m.ro).count();
                 finding
                     .evidence
                     .push(format!("{} material mounts read-write", rw));
@@ -142,6 +166,12 @@ impl Evaluator for SilentKiller {
         }
         finding
     }
+}
+
+/// The mount that currently backs `/`: the last root row wins, since later
+/// rows in `/proc/self/mounts` over-mount earlier ones.
+fn root_mount(mounts: &[Mount]) -> Option<&Mount> {
+    mounts.iter().rev().find(|m| m.mountpoint == "/")
 }
 
 fn pct_free(free: u64, total: u64) -> u64 {
@@ -343,6 +373,136 @@ mod tests {
             .indications
             .iter()
             .any(|i| i.contains("inode exhaustion")));
+    }
+
+    fn root(device: &str, fstype: &str, write_capable: bool, material: bool) -> Mount {
+        Mount {
+            device: device.to_string(),
+            mountpoint: "/".to_string(),
+            fstype: fstype.to_string(),
+            ro: false,
+            write_capable,
+            material,
+        }
+    }
+
+    #[test]
+    fn unsupported_root_filesystem_cannot_clear() {
+        for (device, fstype) in [
+            ("rpool/ROOT/ubuntu", "zfs"),
+            ("overlay", "overlay"),
+            ("10.0.0.5:/export/root", "nfs4"),
+        ] {
+            let mut facts = fixtures::clean_facts();
+            facts.mounts = src_ok(vec![
+                root(device, fstype, false, false),
+                Mount {
+                    device: "shm".to_string(),
+                    mountpoint: "/dev/shm".to_string(),
+                    fstype: "tmpfs".to_string(),
+                    ro: false,
+                    write_capable: false,
+                    material: true,
+                },
+            ]);
+            facts.fs_usage = src_ok(vec![]);
+            let finding = SilentKiller.evaluate(&facts);
+            assert_eq!(finding.verdict, Verdict::Unknown, "{}", fstype);
+            assert!(finding.summary.contains(fstype), "{}", finding.summary);
+            assert!(finding.summary.contains("outside the mount model"));
+            assert!(!finding.evidence.iter().any(|e| e.contains("read-write")));
+        }
+    }
+
+    #[test]
+    fn root_missing_from_mount_table_cannot_clear() {
+        let mut facts = fixtures::clean_facts();
+        facts.mounts = src_ok(vec![Mount {
+            device: "tmpfs".to_string(),
+            mountpoint: "/tmp".to_string(),
+            fstype: "tmpfs".to_string(),
+            ro: false,
+            write_capable: false,
+            material: true,
+        }]);
+        let finding = SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+        assert!(finding.summary.contains("root filesystem missing"));
+    }
+
+    #[test]
+    fn malformed_root_mount_evidence_cannot_clear() {
+        let mut facts = fixtures::clean_facts();
+        facts.mounts = Source::failed(
+            Status::Malformed,
+            "malformed mounts line: \"/dev/sda1 / ext4\"",
+            Duration::from_millis(1),
+        );
+        facts.fs_usage = Source::failed(
+            Status::Unavailable,
+            "mounts unavailable",
+            Duration::from_millis(1),
+        );
+        let finding = SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+    }
+
+    #[test]
+    fn unsupported_root_still_degrades_on_positive_evidence() {
+        let mut facts = fixtures::clean_facts();
+        facts.mounts = src_ok(vec![root("overlay", "overlay", false, false)]);
+        facts.fs_usage = src_ok(vec![]);
+        facts.kernel_log = src_ok(KernelLog {
+            lines: vec![
+                "EXT4-fs error (device dm-3): ext4_find_entry: reading directory lblock 0"
+                    .to_string(),
+            ],
+            method: "dmesg".to_string(),
+        });
+        let finding = SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Degraded);
+    }
+
+    #[test]
+    fn supported_roots_preserve_existing_behavior() {
+        // ext4 root (the clean fixture) and a tmpfs root are both inside the
+        // model: tmpfs cannot be remounted read-only by failure, and its
+        // space/inode facts are collected like any other material mount.
+        let finding = SilentKiller.evaluate(&fixtures::clean_facts());
+        assert_eq!(finding.verdict, Verdict::Clear);
+
+        let mut facts = fixtures::clean_facts();
+        facts.mounts = src_ok(vec![root("rootfs", "tmpfs", false, true)]);
+        let finding = SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Clear);
+    }
+
+    #[test]
+    fn last_root_row_wins_when_root_is_over_mounted() {
+        let mut facts = fixtures::clean_facts();
+        facts.mounts = src_ok(vec![
+            root("rootfs", "rootfs", false, false),
+            root("/dev/sda1", "ext4", true, true),
+        ]);
+        let finding = SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Clear);
+    }
+
+    #[test]
+    fn degraded_on_xfs_forced_shutdown_log_line() {
+        let mut facts = fixtures::clean_facts();
+        facts.kernel_log = src_ok(KernelLog {
+            lines: vec![
+                "XFS (sdb1): Log I/O Error (0x2) detected at xlog_ioend_work+0x7d/0x90 (fs/xfs/xfs_log.c:1378).  Shutting down filesystem.".to_string(),
+            ],
+            method: "dmesg".to_string(),
+        });
+        let finding = SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Degraded);
+        assert!(finding
+            .indications
+            .iter()
+            .any(|i| i.contains("XFS forced shutdown")));
     }
 
     #[test]

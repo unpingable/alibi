@@ -105,11 +105,11 @@
         },
         {
           "name": "conntrack",
-          "role": "supporting"
+          "role": "required"
         },
         {
           "name": "kernel-log",
-          "role": "supporting"
+          "role": "required"
         }
       ],
       "decided_at_ms": 2078,
