@@ -119,3 +119,12 @@ retained requested output was acquired without known loss, not a complete boot
 history. Cleanup uses the command's dedicated process group and a separate
 100 ms polling allowance; inability to reap is explicitly reported. Kernel
 scheduling and uninterruptible waits prevent a universal elapsed-time bound.
+
+Command collection currently qualifies the Linux x86_64 GNU signal ABI. Before
+spawning, Alibi requires default SIGCHLD handling without SA_NOCLDWAIT; ignored
+or custom handlers and other target ABIs produce inadequate evidence. It does
+not normalize or modify inherited signal handling. A wait error prevents numeric
+process-group cleanup because child ownership is then unconfirmed. Reusing the
+collector as a library requires exclusive ownership of its child reaping and
+stable SIGCHLD disposition throughout collection; concurrent external reapers
+or disposition mutation are outside this contract.

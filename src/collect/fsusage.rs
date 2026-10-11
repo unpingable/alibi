@@ -152,6 +152,9 @@ pub fn parse_df_bytes(output: &str) -> Result<(u64, u64), String> {
     }
     let total = parse_u64(fields[1], line)?;
     let avail = parse_u64(fields[3], line)?;
+    if avail > total {
+        return Err(format!("df available capacity exceeds total: {:?}", line));
+    }
     Ok((total, avail))
 }
 
@@ -163,6 +166,9 @@ pub fn parse_df_inodes(output: &str) -> Result<(u64, u64), String> {
     }
     let total = parse_u64(fields[1], line)?;
     let free = parse_u64(fields[3], line)?;
+    if free > total {
+        return Err(format!("df free inodes exceed total: {:?}", line));
+    }
     Ok((total, free))
 }
 
@@ -221,6 +227,25 @@ Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
             parse_df_bytes("Filesystem 1B-blocks Used Available Capacity Mounted on\n").is_err()
         );
         assert!(parse_df_inodes("garbage\n").is_err());
+    }
+
+    #[test]
+    fn contradictory_capacity_is_not_evidence_of_free_space() {
+        let output =
+            "Filesystem 1B-blocks Used Available Capacity Mounted on\n/dev/test 100 0 101 0% /\n";
+        assert!(parse_df_bytes(output).is_err());
+        assert!(parse_df_inodes(output).is_err());
+        let source = assemble(
+            vec![outputs(
+                "/dev/test",
+                "/",
+                Ok(output.into()),
+                Ok(output.into()),
+            )],
+            Duration::ZERO,
+        );
+        assert_eq!(source.status, Status::Malformed);
+        assert!(source.value.is_none());
     }
 
     fn bytes_output(total: u64, free: u64, mountpoint: &str) -> String {

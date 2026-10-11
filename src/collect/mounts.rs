@@ -53,7 +53,16 @@ pub fn parse_mounts(content: &str) -> Result<(Vec<Mount>, usize), String> {
         let fstype = fields[2].to_string();
         let write_capable = WRITE_CAPABLE_FSTYPES.contains(&fstype.as_str());
         let material = write_capable || fstype == "tmpfs";
-        let mountpoint = unescape(fields[1]);
+        let mountpoint = checked_unescape(fields[1])?;
+        let device = checked_unescape(fields[0])?;
+        let ro = fields[3].split(',').any(|opt| opt == "ro");
+        let rw = fields[3].split(',').any(|opt| opt == "rw");
+        if ro == rw {
+            return Err(format!(
+                "mount access mode is missing or contradictory: {:?}",
+                line
+            ));
+        }
         // The root row is always retained, even when its filesystem type is
         // outside the model, so evaluators can tell "root is a type we can
         // reason about" from "root is something else" (or missing entirely).
@@ -62,9 +71,8 @@ pub fn parse_mounts(content: &str) -> Result<(Vec<Mount>, usize), String> {
             excluded += 1;
             continue;
         }
-        let ro = fields[3].split(',').any(|opt| opt == "ro");
         mounts.push(Mount {
-            device: unescape(fields[0]),
+            device,
             mountpoint,
             fstype,
             ro,
@@ -76,23 +84,33 @@ pub fn parse_mounts(content: &str) -> Result<(Vec<Mount>, usize), String> {
 }
 
 pub fn unescape(s: &str) -> String {
+    checked_unescape(s).unwrap_or_else(|_| s.to_string())
+}
+
+fn checked_unescape(s: &str) -> Result<String, String> {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'\\' && i + 3 < bytes.len() {
-            if let Ok(v) = u32::from_str_radix(&s[i + 1..i + 4], 8) {
-                if v <= 0xff {
-                    out.push(v as u8);
-                    i += 4;
-                    continue;
-                }
+        if bytes[i] == b'\\' {
+            let digits = bytes
+                .get(i + 1..i + 4)
+                .filter(|digits| digits.iter().all(|byte| (b'0'..=b'7').contains(byte)))
+                .ok_or_else(|| format!("malformed mount escape: {:?}", s))?;
+            let value = digits
+                .iter()
+                .fold(0u16, |value, digit| value * 8 + u16::from(digit - b'0'));
+            if value > 255 || value == 0 {
+                return Err(format!("invalid mount escape: {:?}", s));
             }
+            out.push(value as u8);
+            i += 4;
+            continue;
         }
         out.push(bytes[i]);
         i += 1;
     }
-    String::from_utf8_lossy(&out).into_owned()
+    String::from_utf8(out).map_err(|_| format!("non-UTF-8 decoded mount name: {:?}", s))
 }
 
 #[cfg(test)]
@@ -144,6 +162,22 @@ tmpfs /run tmpfs rw,nosuid,nodev 0 0
     #[test]
     fn malformed_line_fails_whole_parse() {
         assert!(parse_mounts("garbage line\n").is_err());
+    }
+
+    #[test]
+    fn mount_mode_must_be_explicit_and_unambiguous() {
+        for options in ["nonsense", "ro,rw", "errors=remount-ro"] {
+            assert!(parse_mounts(&format!("/dev/vda / ext4 {} 0 0\n", options)).is_err());
+        }
+    }
+
+    #[test]
+    fn malformed_escapes_fail_without_utf8_boundary_panics() {
+        for name in ["/\\éé", "/\\12", "/\\777", "/\\000", "/\\377"] {
+            assert!(parse_mounts(&format!("/dev/vda {} ext4 rw 0 0\n", name)).is_err());
+        }
+        let (mounts, _) = parse_mounts("/dev/vda /café\\040data ext4 rw 0 0\n").unwrap();
+        assert_eq!(mounts[0].mountpoint, "/café data");
     }
 
     #[test]

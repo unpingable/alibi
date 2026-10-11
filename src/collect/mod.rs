@@ -345,6 +345,7 @@ fn run_command_limited(
     timeout: Duration,
     limit: usize,
 ) -> Result<String, String> {
+    ensure_waitable_children().map_err(|error| format!("{}: {}", program, error))?;
     let start = Instant::now();
     let (mut stdout, child_stdout) =
         UnixStream::pair().map_err(|e| format!("{}: stdout channel: {}", program, e))?;
@@ -425,7 +426,15 @@ fn run_command_limited(
                     });
                 }
                 Ok(None) => {}
-                Err(e) => break format!("wait failed: {}", e),
+                Err(e) => {
+                    // ECHILD (or any unexpected wait failure) invalidates our
+                    // leader-ownership evidence. Never signal a numeric group
+                    // after losing that evidence, even as attempted cleanup.
+                    return Err(format!(
+                        "{}: wait failed: {}; cleanup not signaled: child ownership unconfirmed",
+                        program, e
+                    ));
+                }
             }
         }
         if !progress {
@@ -461,6 +470,54 @@ fn drain_chunk(
     }
 }
 
+// Public library callers must own child reaping and keep SIGCHLD disposition
+// stable throughout collection. Preflight cannot exclude a concurrent waiter or
+// signal mutation in another thread. The standalone CLI installs neither.
+#[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
+#[repr(C)]
+struct SigchldAction {
+    handler: usize,
+    mask: [u64; 16],
+    flags: i32,
+    restorer: usize,
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
+unsafe extern "C" {
+    fn sigaction(signal: i32, action: *const SigchldAction, old: *mut SigchldAction) -> i32;
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
+fn ensure_waitable_children() -> Result<(), String> {
+    // ABI is qualified against Linux x86_64 glibc's signal.h, not guessed for
+    // other targets: handler, 1024-bit mask, int flags, aligned restorer.
+    let mut action = SigchldAction {
+        handler: 0,
+        mask: [0; 16],
+        flags: 0,
+        restorer: 0,
+    };
+    let result = unsafe { sigaction(17, std::ptr::null(), &mut action) };
+    if result != 0 {
+        return Err(format!(
+            "cannot inspect SIGCHLD disposition: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    if action.handler != 0 || action.flags & 2 != 0 {
+        return Err("unsupported SIGCHLD disposition: default handler without SA_NOCLDWAIT required; command not spawned".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(not(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu")))]
+fn ensure_waitable_children() -> Result<(), String> {
+    Err(
+        "command collection signal ABI is qualified only for Linux x86_64 GNU; command not spawned"
+            .to_string(),
+    )
+}
+
 fn terminate_command(child: &mut Child) -> String {
     // Linux/POSIX kill targets a process group for a negative pid. The child
     // was created in its own group and has not been reaped on these paths.
@@ -485,9 +542,46 @@ fn terminate_command(child: &mut Child) -> String {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
 mod command_tests {
     use super::*;
+
+    #[test]
+    fn nonwaitable_sigchld_dispositions_refuse_before_spawn() {
+        const MODE: &str = "ALIBI_TEST_SIGCHLD_MODE";
+        if let Ok(mode) = std::env::var(MODE) {
+            // This branch runs only in a fresh single-test subprocess, never
+            // in the parallel test runner or an arbitrary library caller.
+            let action = SigchldAction {
+                handler: if mode == "ignored" { 1 } else { 0 },
+                mask: [0; 16],
+                flags: if mode == "no-child-wait" { 2 } else { 0 },
+                restorer: 0,
+            };
+            assert_eq!(unsafe { sigaction(17, &action, std::ptr::null_mut()) }, 0);
+            let error = run_command("/alibi-fixture-must-not-exist", &[], Duration::from_secs(1))
+                .unwrap_err();
+            assert!(error.contains("unsupported SIGCHLD disposition"), "{error}");
+            assert!(error.contains("command not spawned"));
+            return;
+        }
+        for mode in ["ignored", "no-child-wait"] {
+            let output = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "collect::command_tests::nonwaitable_sigchld_dispositions_refuse_before_spawn",
+                ])
+                .env(MODE, mode)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{mode}: {} {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
 
     #[test]
     fn inherited_streams_are_inside_acquisition_deadline() {

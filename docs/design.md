@@ -135,7 +135,15 @@ output streams, with an 8 MiB limit per stream. Timeout, read, encoding and cap
 failures discard command output and cannot become complete evidence. The
 collector uses nonblocking streams without reader threads. Failure signals only
 the dedicated child process group while its leader identity is unreaped, then
-allows at most 100 ms of userspace cleanup polling. Failure to reap is reported;
+allows at most 100 ms of userspace cleanup polling. Before spawning, a read-only
+SIGCHLD disposition check requires the default handler without SA_NOCLDWAIT;
+ignored/custom handlers or auto-reaping flags refuse collection. This ABI check
+is qualified only for Linux x86_64 GNU targets; other targets refuse command
+collection rather than guessing the signal layout. The check changes no signal
+handler. Any wait error invalidates ownership evidence and skips numeric group
+signaling. Library callers must not concurrently reap collector children or
+change SIGCHLD disposition; preflight cannot establish that invariant for an
+arbitrary concurrent caller. Failure to reap is reported;
 this is not proof that every descendant retired. Scheduling, spawn, and kernel
 uninterruptible waits prevent a universal wall-clock guarantee. The two-second
 network delta window is paid only when `network-choke-point` is selected.
