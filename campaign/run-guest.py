@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import resource
 import signal
+import stat
 import subprocess
 import time
 import uuid
@@ -85,12 +86,12 @@ def main():
             command += ['-netdev',f'hubport,id=n{n},hubid={n}',
                         '-device',f'{args.nic_model},id=labnic{n},netdev=n{n},mac=52:54:00:12:34:{n+1:02x}']
     else: command += ['-nic','none']
-    control=None;control_path=None;control_result=None
+    control=None;control_path=None;control_result=None;control_directory_identity=None
     if args.carrier_control:
-        control_directory=out.parent/('.qmp-'+uuid.uuid4().hex[:12])
+        # Short, exclusive, owner-only runtime directory; custody is recorded before QEMU.
+        control_directory=Path('/tmp')/('alibi-qmp-'+uuid.uuid4().hex)
         control_path=control_directory/'q'
         if len(os.fsencode(control_path))>=104:parser.error('QMP path exceeds conservative Unix socket bound')
-        control_directory.mkdir(mode=0o700)
         command += ['-qmp','unix:'+str(control_path)+',server=on,wait=off']
     start=dict(schema_version=1,run_id=args.run_id,case_id=args.case_id,owner=args.owner,
                purpose='Independent-kernel Alibi qualification trial',retirement=args.retirement,
@@ -113,6 +114,15 @@ def main():
         resource.setrlimit(resource.RLIMIT_FSIZE,(67_108_864,67_108_864))
         os.umask(0o077)
     try:
+        if control_path is not None:
+            control_directory.mkdir(mode=0o700)
+            info=control_directory.lstat()
+            control_directory_identity=(info.st_dev,info.st_ino)
+            write_new(out/'CONTROL-CUSTODY.json',dict(run_id=args.run_id,owner=args.owner,
+                      directory=str(control_directory),device=info.st_dev,inode=info.st_ino,
+                      uid=info.st_uid,mode=oct(stat.S_IMODE(info.st_mode)),socket=str(control_path),
+                      purpose='Exact guest QMP runtime socket only',retirement='After owned QEMU reaped; exact socket and empty directory only',
+                      recovery='Reconcile START/EXECUTION and exact directory identity; do not remove while original QEMU lives.'))
         with stderr.open('xb') as err:
             process=subprocess.Popen(command,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,
                                      stderr=err,start_new_session=True,preexec_fn=limits)
@@ -142,11 +152,26 @@ def main():
         error=repr(exc)
         if 'process' in locals() and process.poll() is None:
             os.killpg(process.pid,signal.SIGKILL); returncode=process.wait()
-    if control is not None:
-        try:control_result=control.close()
-        except Exception as exc:control_result={'retirement_error':repr(exc),'socket':str(control_path)}
-    elif control_path is not None:
-        control_result={'retirement_error':'controller was not constructed; inspect exact directory','socket':str(control_path)}
+    if control_path is not None:
+        try:
+            if control_directory_identity is None:
+                raise RuntimeError('directory creation not established; no cleanup authority')
+            info=control_directory.lstat()
+            if (info.st_dev,info.st_ino)!=control_directory_identity or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o700:
+                raise RuntimeError('QMP directory identity changed; retained for review')
+            if control is not None:
+                control_result=control.close()
+            else:
+                # Launch/connect failure: the owned QEMU has already been reaped.
+                if control_path.exists():
+                    socket_info=control_path.lstat()
+                    if not stat.S_ISSOCK(socket_info.st_mode) or socket_info.st_uid!=os.getuid():
+                        raise RuntimeError('unexpected control path; retained for review')
+                    control_path.unlink()
+                control_directory.rmdir()
+                control_result={'directory_removed':True,'socket_disposition':'retired-after-launch-failure'}
+        except Exception as exc:
+            control_result={'retirement_error':repr(exc),'socket':str(control_path)}
     elapsed=time.monotonic()-started
     data=serial.read_text(errors='replace') if serial.exists() else ''
     marker=re.search(r'^ALIBI_GUEST_COMPLETE '+re.escape(args.run_id)+r' scenario_rc=(\d+)\s*$',data,re.M)
