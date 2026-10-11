@@ -84,3 +84,66 @@ Decision owner: oracle_design lane, subject to independent campaign acceptance. 
 ## Custody and retirement
 
 This matrix and final minimal result/receipt/source identities are durable campaign documentation. Hidden case manifest owner is oracle_design, custodian campaign root; purpose is independent final evaluation. Current consumer is final evaluator; next review event is candidate freeze or campaign closeout. Retire hidden-only custody after revealing and incorporating the exact manifest into reproducible final evidence, retaining the content/hash required to replay the final round. This lane creates no VM, build tree, credentials, or large artifacts. Execution artifacts require the campaign's existing storage admission and closeout records.
+
+## Executed successor matrix
+
+The specification above is preserved as written before execution. Actual environment used supported tmpfs root plus dedicated ext4/XFS mounts, not the proposed ext4 root. See RESULTS.md for all145 occurrence counts and failed attempts. The final representative case table below adds fault-family/accusation outcomes without treating repeats as independent cases. `E/QUALIFICATION-MATRIX.json` binds exact receipts and oracle input hashes. All rows use independently booted Linux6.5.0-44 with constructed GNU userspace; the second-kernel acquisition subset is separately reported. C/D/U/NA retain their original meanings. G30/G36 remain no-primary-receipt F7; H03 has an actual receipt but failed intended induction.
+
+| Case | Family | Accusation | Final actual | Evidence kind | Classes |
+|---|---|---|---|---|---|
+| G01 | Healthy control | kernel-scream | CLEAR | real-guest-condition | No demonstrated failure |
+| G01 | Healthy control | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G01 | Healthy control | silent-killer | CLEAR | real-guest-condition | No demonstrated failure |
+| G02 | Applicability control | network-choke-point | NOT_APPLICABLE | real-guest-condition | No demonstrated failure |
+| G03 | Privilege boundary | kernel-scream | UNKNOWN | real-guest-condition | No demonstrated failure |
+| G03 | Privilege boundary | memrot | UNKNOWN | real-guest-condition | No demonstrated failure |
+| G03 | Privilege boundary | network-choke-point | UNKNOWN | real-guest-condition | No demonstrated failure |
+| G03 | Privilege boundary | silent-killer | UNKNOWN | real-guest-condition | No demonstrated failure |
+| G04 | Virtual hardware scope | memrot | UNKNOWN | real-guest-condition | No demonstrated failure |
+| G05 | Missing route | network-choke-point | DEGRADED | real-guest-condition | No demonstrated failure |
+| G06 | Rejected route | network-choke-point | DEGRADED | real-guest-condition | No demonstrated failure |
+| G07 | Blackhole route | network-choke-point | DEGRADED | real-guest-condition | No demonstrated failure |
+| G08 | Unused down interface | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G09 | Carrier loss | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G10 | Bad next hop | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G11 | DNS unavailable | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G12 | Packet filter | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G13 | Sampled drops | network-choke-point | DEGRADED | real-guest-condition | No demonstrated failure |
+| G14 | Historical counters | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G15 | Repeated link transitions | network-choke-point | DEGRADED | real-guest-condition | No demonstrated failure |
+| G16 | Conntrack pressure | network-choke-point | DEGRADED | real-guest-condition | No demonstrated failure |
+| G17 | Conntrack absent | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G18 | Critical block space | silent-killer | DEGRADED | real-guest-condition | No demonstrated failure |
+| G19 | Inode exhaustion | silent-killer | DEGRADED | real-guest-condition | No demonstrated failure |
+| G20 | Read-only filesystem | silent-killer | DEGRADED | real-guest-condition | No demonstrated failure |
+| G21 | Intentional bind view | silent-killer | CLEAR | real-guest-condition | No demonstrated failure |
+| G22 | Unsupported root | silent-killer | UNKNOWN | real-guest-condition | No demonstrated failure |
+| G23 | Space across mounts | silent-killer | DEGRADED | real-guest-condition | No demonstrated failure |
+| G24 | XFS shutdown | kernel-scream | DEGRADED | real-guest-condition | No demonstrated failure |
+| G24 | XFS shutdown | silent-killer | DEGRADED | real-guest-condition | No demonstrated failure |
+| G25 | Block I/O error | kernel-scream | DEGRADED | real-guest-condition | No demonstrated failure |
+| G25 | Block I/O error | silent-killer | DEGRADED | real-guest-condition | No demonstrated failure |
+| G26 | Evidence view denied | network-choke-point | UNKNOWN | permission-view | No demonstrated failure |
+| G27 | Malformed command evidence | silent-killer | UNKNOWN | command-substitution | No demonstrated failure |
+| G28 | Empty log acquisition | kernel-scream | UNKNOWN | command-substitution | No demonstrated failure |
+| G29 | DNS plus ample filesystems | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G29 | DNS plus ample filesystems | silent-killer | CLEAR | real-guest-condition | No demonstrated failure |
+| G31 | Missing route plus log denied | network-choke-point | DEGRADED | real-guest-condition | No demonstrated failure |
+| G32 | Counter topology transition | network-choke-point | UNKNOWN | real-guest-condition | No demonstrated failure |
+| G33 | Fault immediately before | silent-killer | DEGRADED | real-guest-condition | No demonstrated failure |
+| G34 | Fault removed immediately before | silent-killer | CLEAR | real-guest-condition | No demonstrated failure |
+| G35 | Mount disappears during collection | silent-killer | UNKNOWN | intervention-assisted-real-transition | No demonstrated failure |
+| G37 | Evidence command stalls | kernel-scream | UNKNOWN | command-substitution | No demonstrated failure |
+| G38 | Failed application with healthy evidence | memrot | UNKNOWN | real-guest-condition | No demonstrated failure |
+| G38 | Failed application with healthy evidence | network-choke-point | CLEAR | real-guest-condition | No demonstrated failure |
+| G38 | Failed application with healthy evidence | silent-killer | CLEAR | real-guest-condition | No demonstrated failure |
+| H01 | Evidence pair inadequate | network-choke-point | UNKNOWN | guest-evidence-view | No demonstrated failure |
+| H02 | Shadowed filesystem | silent-killer | UNKNOWN | real-guest-condition | No demonstrated failure |
+| H03 | Drop plus denied counter | network-choke-point | UNKNOWN | guest-evidence-view | F7 |
+| H04 | Benign log semantics | memrot | DEGRADED | command-substitution | F1 |
+| H05 | Interface generation transition | network-choke-point | CLEAR | real-guest-condition | F0,F2,F3 |
+| H06 | Human receipt limitation | network-choke-point | DEGRADED | real-guest-condition | F3 |
+| G30 | Full filesystem plus failed systemd service | S,K | No primary receipt | Missing service-manager environment | F7 |
+| G36 | Exact route-read transition | N | No primary receipt | No independently verified barrier | F7 |
+
+H01 narrows the original intended oracle: missing max was established, but numeric count was not readable in the private view. H04 remains an explicit command fixture with independent informational-message provenance. H05 real replacement and H06 default-human detail loss remain unresolved; no holdout-driven repair was performed. Original failed G13/G14 attempts are retained alongside TUN successors. The aggregate accusation table in RESULTS.md reports C/D/U/NA and overlapping failure categories separately.

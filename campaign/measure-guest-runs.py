@@ -54,7 +54,13 @@ def main():
             for metadata_path in sorted((terminal_path.parent / 'captures').glob('*/metadata')):
                 directory = metadata_path.parent
                 argv = (directory / 'argv').read_bytes().split(b'\0')
-                if not any(Path(a.decode(errors='replace')).name == 'alibi' for a in argv if a):
+                try:
+                    parsed = json.loads((directory / 'stdout').read_text())
+                except (ValueError, UnicodeError):
+                    parsed = None
+                is_receipt = isinstance(parsed, dict) and parsed.get('tool') == 'alibi' and parsed.get('receipt_version') == 2
+                direct = any(Path(a.decode(errors='replace')).name == 'alibi' for a in argv if a)
+                if not direct and not is_receipt:
                     continue
                 metadata = json.loads(metadata_path.read_text())
                 measurement = dict(**identity, invocation=directory.name,
@@ -62,7 +68,9 @@ def main():
                     stream_sha256={name: sha(directory / name) for name in ['argv', 'stdout', 'stderr', 'resource']},
                     wall_ms=round(1000 * (metadata['ended_uptime_seconds'] - metadata['started_uptime_seconds']), 3))
                 try:
-                    receipt = json.loads((directory / 'stdout').read_text())
+                    receipt = parsed
+                    if not is_receipt:
+                        raise ValueError('not an Alibi V2 receipt')
                     measurement.update(receipt_version=receipt.get('receipt_version'),
                         interrogation_ms=receipt.get('interrogation_complete_ms'),
                         emitted_verdict=receipt.get('verdict'),

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "source_revision": "6f8ad5fba4ed6f3fb9f32c9930377a0a48e06931",
+  "owner": "oracle_design",
+  "created_at": "2026-10-11T16:48:24.872146+00:00",
+  "status": "SEALED_UNEXECUTED",
+  "freeze_rule": "Do not disclose to implementation lanes until candidate source and executable hash frozen.",
+  "retirement": "Reveal at final evaluation, retain exact replay content/hash with final evidence; review at candidate freeze or campaign closeout.",
+  "cases": [
+    {
+      "id": "H01",
+      "name": "conntrack partially missing pair",
+      "change": "In guest-private mount namespace hide only nf_conntrack_max while genuine nf_conntrack_count remains visible; separately prove subsystem loaded and existing live flows.",
+      "oracle": "UNKNOWN unless another supported positive yields DEGRADED. A missing member cannot establish subsystem absence.",
+      "class": "guest evidence substitution",
+      "accusation": "network-choke-point"
+    },
+    {
+      "id": "H02",
+      "name": "mounted path shadowing",
+      "change": "Guest mounts two small ext4 filesystems successively on the same pathname; lower mount is critical, visible upper mount ample. Preserve mount IDs, source devices and statvfs by open directory handles.",
+      "oracle": "The evaluator must not claim capacity measured for both device identities from df against the one visible pathname. UNKNOWN or positive DEGRADED if corresponding evidence retained; CLEAR requires explicit defensible visible-domain scope.",
+      "class": "real guest mount topology",
+      "accusation": "silent-killer"
+    },
+    {
+      "id": "H03",
+      "name": "required source failure plus retained counter positive",
+      "change": "Guest-local traffic raises an independently bracketed RX/TX drop counter; deny only one different counter source in process namespace.",
+      "oracle": "DEGRADED with positive delta and explicit incomplete evidence. UNKNOWN loses required positive precedence; CLEAR false.",
+      "class": "compound real drop plus evidence fixture",
+      "accusation": "network-choke-point"
+    },
+    {
+      "id": "H04",
+      "name": "benign EDAC log vocabulary",
+      "change": "Use fresh VM without EDAC; produce a real guest-kernel benign EDAC informational event where feasible (module initialization failure without memory corruption), otherwise classify as command substitution and preserve exact benign message provenance.",
+      "oracle": "memrot UNKNOWN without positive integrity evidence; broad EDAC substring cannot alone establish hardware degradation for benign capability/setup messages. Actual event semantics must be independently checked.",
+      "class": "driver message or explicitly labeled substitution",
+      "accusation": "memrot"
+    },
+    {
+      "id": "H05",
+      "name": "equal-name interface replacement",
+      "change": "Replace guest veth during sample with a new same-named veth, restoring routes; preserve ifindex event history and ensure counters monotonic by controlled traffic.",
+      "oracle": "No CLEAR based on combining distinct interface generations unless continuity justified. UNKNOWN acceptable; trace must prove replacement between actual samples.",
+      "class": "real guest state transition",
+      "accusation": "network-choke-point"
+    },
+    {
+      "id": "H06",
+      "name": "human required evidence limitation",
+      "change": "Guest missing defaults gives supported DEGRADED while log access denied; execute default human CLI and JSON separately under stable state.",
+      "oracle": "Both must disclose missing required log evidence sufficiently to preserve envelope; positive route evidence cannot erase limitation. Compare semantic bounds, not exact timestamps.",
+      "class": "real guest compound permission condition",
+      "accusation": "network-choke-point"
+    }
+  ]
+}
