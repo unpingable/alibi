@@ -46,7 +46,9 @@
     "--module-file",
     "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/overlay.ko",
     "--module-file",
-    "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/xfs.ko"
+    "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/xfs.ko",
+    "--tool",
+    "/usr/bin/dd"
   ],
   "module_order": [
     "dummy.ko",
@@ -71,7 +73,8 @@
     "/usr/sbin/xfs_io",
     "/usr/sbin/mkfs.xfs",
     "/usr/sbin/dmsetup",
-    "/usr/bin/bash"
+    "/usr/bin/bash",
+    "/usr/bin/dd"
   ],
   "scope": "Root-admitted extended guest cases; availability is not execution or qualification",
   "note": "Default GNU time/timeout already included; builtin loop/ext4/device-mapper need no module files. Use dmsetup --noudevsync in no-udev guest.",

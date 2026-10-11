@@ -50,12 +50,18 @@ def main():
     parser.add_argument('--timeout',type=int,default=180)
     parser.add_argument('--memory-mib',type=int,default=512)
     parser.add_argument('--isolated-nics',type=int,default=0,choices=(0,1,2))
+    parser.add_argument('--carrier-control',action='store_true')
+    parser.add_argument('--nic-model',choices=('virtio-net-pci','e1000'),default='virtio-net-pci')
     parser.add_argument('--qemu',type=Path,default=Path('/usr/bin/qemu-system-x86_64'))
     args=parser.parse_args()
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}',args.run_id): parser.error('invalid run ID')
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}',args.case_id): parser.error('invalid case ID')
     if not 1<=args.timeout<=3600: parser.error('timeout outside 1..3600 seconds')
     if not 128<=args.memory_mib<=2048: parser.error('memory outside 128..2048 MiB')
+    if args.carrier_control and (args.case_id not in ('G09','G15') or args.isolated_nics!=1):
+        parser.error('carrier control requires G09/G15 and exactly one isolated NIC')
+    if args.nic_model!='virtio-net-pci' and not args.carrier_control:
+        parser.error('alternate NIC model is scoped to explicit carrier cases')
     for p in (args.kernel,args.initramfs,args.checkpoint,args.qemu):
         if not p.is_file(): parser.error('missing admitted input: '+str(p))
     for path in ('/','/data'):
@@ -77,8 +83,15 @@ def main():
     if args.isolated_nics:
         for n in range(args.isolated_nics):
             command += ['-netdev',f'hubport,id=n{n},hubid={n}',
-                        '-device',f'virtio-net-pci,netdev=n{n},mac=52:54:00:12:34:{n+1:02x}']
+                        '-device',f'{args.nic_model},id=labnic{n},netdev=n{n},mac=52:54:00:12:34:{n+1:02x}']
     else: command += ['-nic','none']
+    control=None;control_path=None;control_result=None
+    if args.carrier_control:
+        control_directory=out.parent/('.qmp-'+uuid.uuid4().hex[:12])
+        control_path=control_directory/'q'
+        if len(os.fsencode(control_path))>=104:parser.error('QMP path exceeds conservative Unix socket bound')
+        control_directory.mkdir(mode=0o700)
+        command += ['-qmp','unix:'+str(control_path)+',server=on,wait=off']
     start=dict(schema_version=1,run_id=args.run_id,case_id=args.case_id,owner=args.owner,
                purpose='Independent-kernel Alibi qualification trial',retirement=args.retirement,
                host=os.uname().nodename,cwd=os.getcwd(),source_revision=args.source_revision,
@@ -89,7 +102,8 @@ def main():
                kernel_sha256=sha(args.kernel),
                initramfs_sha256=sha(args.initramfs),qemu_sha256=sha(args.qemu),
                timeout_seconds=args.timeout,memory_mib=args.memory_mib,
-               command=command,expected_terminal=str(out/'TERMINAL.json'),
+               command=command,carrier_control=args.carrier_control,control_socket=str(control_path) if control_path else None,
+               carrier_controller_sha256=sha(Path(__file__).with_name('carrier_control.py')) if args.carrier_control else None,expected_terminal=str(out/'TERMINAL.json'),
                serial=str(serial),stderr=str(stderr),
                recovery='Inspect original service InvocationID, START.json, EXECUTION.json, serial.log, and TERMINAL.json; do not restart this run.')
     write_new(out/'START.json',start)
@@ -106,7 +120,19 @@ def main():
                        proc_start_identity=Path(f'/proc/{process.pid}/stat').read_text(),
                        systemd_invocation_id=os.environ.get('INVOCATION_ID')))
             try:
-                returncode=process.wait(timeout=args.timeout)
+                if args.carrier_control:
+                    from carrier_control import CarrierController
+                    control=CarrierController(control_path,serial,args.run_id,args.case_id,out/'carrier-control.jsonl')
+                    control.connect()
+                    while process.poll() is None:
+                        control.poll()
+                        if time.monotonic()-started>args.timeout:
+                            raise subprocess.TimeoutExpired(command,args.timeout)
+                        time.sleep(.05)
+                    control.poll()
+                    returncode=process.returncode
+                else:
+                    returncode=process.wait(timeout=args.timeout)
                 result='QEMU_EXITED'
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid,signal.SIGKILL)
@@ -116,6 +142,11 @@ def main():
         error=repr(exc)
         if 'process' in locals() and process.poll() is None:
             os.killpg(process.pid,signal.SIGKILL); returncode=process.wait()
+    if control is not None:
+        try:control_result=control.close()
+        except Exception as exc:control_result={'retirement_error':repr(exc),'socket':str(control_path)}
+    elif control_path is not None:
+        control_result={'retirement_error':'controller was not constructed; inspect exact directory','socket':str(control_path)}
     elapsed=time.monotonic()-started
     data=serial.read_text(errors='replace') if serial.exists() else ''
     marker=re.search(r'^ALIBI_GUEST_COMPLETE '+re.escape(args.run_id)+r' scenario_rc=(\d+)\s*$',data,re.M)
@@ -134,6 +165,7 @@ def main():
                   stderr_sha256=sha(stderr) if stderr.exists() else None,
                   child_user_seconds=usage.ru_utime,child_system_seconds=usage.ru_stime,
                   child_maxrss_kib=usage.ru_maxrss,
+                  carrier_control=control_result,carrier_log_sha256=sha(out/'carrier-control.jsonl') if (out/'carrier-control.jsonl').exists() else None,
                   capture_errors=capture_result['errors'],captured_files=len(capture_result['captures']),
                   acceptance='NOT_EVALUATED: terminal execution is not qualification acceptance')
     write_new(out/'TERMINAL.json',terminal)
