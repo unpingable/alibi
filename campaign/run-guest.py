@@ -16,6 +16,10 @@ import signal
 import subprocess
 import time
 import uuid
+import sys
+sys.dont_write_bytecode = True
+
+from capture_frames import extract
 
 FLOOR=64_424_509_440
 
@@ -42,24 +46,26 @@ def main():
     parser.add_argument('--owner',required=True)
     parser.add_argument('--retirement',required=True)
     parser.add_argument('--run-id',default=str(uuid.uuid4()))
+    parser.add_argument('--case-id',default='baseline')
     parser.add_argument('--timeout',type=int,default=180)
     parser.add_argument('--memory-mib',type=int,default=512)
     parser.add_argument('--isolated-nics',type=int,default=0,choices=(0,1,2))
     parser.add_argument('--qemu',type=Path,default=Path('/usr/bin/qemu-system-x86_64'))
     args=parser.parse_args()
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}',args.run_id): parser.error('invalid run ID')
+    if not re.fullmatch(r'[a-zA-Z0-9_-]{1,100}',args.case_id): parser.error('invalid case ID')
     if not 1<=args.timeout<=3600: parser.error('timeout outside 1..3600 seconds')
     if not 128<=args.memory_mib<=2048: parser.error('memory outside 128..2048 MiB')
     for p in (args.kernel,args.initramfs,args.checkpoint,args.qemu):
         if not p.is_file(): parser.error('missing admitted input: '+str(p))
     for path in ('/','/data'):
         fs=os.statvfs(path)
-        if fs.f_bavail*fs.f_frsize-167_772_160<FLOOR:
-            parser.error('160 MiB capture envelope would cross host reserve: '+path)
+        if fs.f_bavail*fs.f_frsize-234_881_024<FLOOR:
+            parser.error('224 MiB capture envelope would cross host reserve: '+path)
     out=args.output_dir.absolute()
     destination=os.statvfs(out.parent)
-    if destination.f_bavail*destination.f_frsize<167_772_160 or destination.f_favail<16:
-        parser.error('destination lacks admitted 160 MiB / 16-inode capture envelope')
+    if destination.f_bavail*destination.f_frsize<234_881_024 or destination.f_favail<16:
+        parser.error('destination lacks admitted 224 MiB / 16-inode capture envelope')
     out.mkdir(parents=False,exist_ok=False)
     serial=out/'serial.log'
     stderr=out/'qemu.stderr'
@@ -67,19 +73,20 @@ def main():
              '-m',str(args.memory_mib),'-smp','1','-nodefaults','-display','none',
              '-monitor','none','-serial','file:'+str(serial),'-no-reboot',
              '-kernel',str(args.kernel.resolve()),'-initrd',str(args.initramfs.resolve()),
-             '-append','console=ttyS0 panic=1 rdinit=/init alibi_run='+args.run_id]
+             '-append','console=ttyS0 panic=1 rdinit=/init alibi_run='+args.run_id+' alibi_case='+args.case_id]
     if args.isolated_nics:
         for n in range(args.isolated_nics):
             command += ['-netdev',f'hubport,id=n{n},hubid={n}',
                         '-device',f'virtio-net-pci,netdev=n{n},mac=52:54:00:12:34:{n+1:02x}']
     else: command += ['-nic','none']
-    start=dict(schema_version=1,run_id=args.run_id,owner=args.owner,
+    start=dict(schema_version=1,run_id=args.run_id,case_id=args.case_id,owner=args.owner,
                purpose='Independent-kernel Alibi qualification trial',retirement=args.retirement,
                host=os.uname().nodename,cwd=os.getcwd(),source_revision=args.source_revision,
                started_at=datetime.now(timezone.utc).isoformat(),runner_pid=os.getpid(),
                systemd_invocation_id=os.environ.get('INVOCATION_ID'),
                checkpoint=str(args.checkpoint.resolve()),checkpoint_sha256=sha(args.checkpoint),
-               runner_sha256=sha(__file__),kernel_sha256=sha(args.kernel),
+               runner_sha256=sha(__file__),capture_parser_sha256=sha(Path(__file__).with_name("capture_frames.py")),
+               kernel_sha256=sha(args.kernel),
                initramfs_sha256=sha(args.initramfs),qemu_sha256=sha(args.qemu),
                timeout_seconds=args.timeout,memory_mib=args.memory_mib,
                command=command,expected_terminal=str(out/'TERMINAL.json'),
@@ -112,6 +119,10 @@ def main():
     elapsed=time.monotonic()-started
     data=serial.read_text(errors='replace') if serial.exists() else ''
     marker=re.search(r'^ALIBI_GUEST_COMPLETE '+re.escape(args.run_id)+r' scenario_rc=(\d+)\s*$',data,re.M)
+    try:
+        capture_result=extract(serial,args.run_id,out/'captures') if serial.exists() else {'errors':['missing serial log'],'captures':[]}
+    except Exception as exc:
+        capture_result={'errors':['capture extraction failed: '+repr(exc)],'captures':[]}
     usage=resource.getrusage(resource.RUSAGE_CHILDREN)
     terminal=dict(schema_version=1,run_id=args.run_id,execution_disposition=result,
                   qemu_exit_status=returncode,elapsed_seconds=elapsed,error=error,
@@ -123,6 +134,7 @@ def main():
                   stderr_sha256=sha(stderr) if stderr.exists() else None,
                   child_user_seconds=usage.ru_utime,child_system_seconds=usage.ru_stime,
                   child_maxrss_kib=usage.ru_maxrss,
+                  capture_errors=capture_result['errors'],captured_files=len(capture_result['captures']),
                   acceptance='NOT_EVALUATED: terminal execution is not qualification acceptance')
     write_new(out/'TERMINAL.json',terminal)
     print(json.dumps(terminal))

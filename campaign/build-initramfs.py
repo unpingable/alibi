@@ -32,7 +32,12 @@ def main():
     a.add_argument('--tool', type=Path, action='append', default=[])
     a.add_argument('--module-file', type=Path, action='append', default=[])
     a.add_argument('--kernel-release')
+    a.add_argument('--overlay-case', help='Case token selecting an actual overlay boot root')
     args = a.parse_args()
+    if args.overlay_case and not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', args.overlay_case):
+        a.error('invalid overlay case token')
+    if args.overlay_case and not any(p.name.startswith('overlay.ko') for p in args.module_file):
+        a.error('--overlay-case requires an explicit matching overlay module')
     if not args.admission.is_file():
         a.error('existing campaign storage admission receipt required')
     if args.module_file and not args.kernel_release:
@@ -90,7 +95,9 @@ def main():
             (root/'bin'/applet).symlink_to('busybox')
     # Replace applet links with exact external tools where the interface matters.
     for source, destination in [(args.alibi,'/bin/alibi'),('/usr/bin/df','/bin/df'),
-                                 ('/usr/bin/dmesg','/bin/dmesg'),('/usr/sbin/ip','/bin/ip')]:
+                                 ('/usr/bin/dmesg','/bin/dmesg'),('/usr/sbin/ip','/bin/ip'),
+                                 ('/usr/bin/timeout','/bin/timeout'),('/usr/bin/time','/bin/time'),
+                                 ('/usr/bin/dash','/bin/sh')]:
         p = root / destination.lstrip('/')
         if p.is_symlink():
             p.unlink()
@@ -100,8 +107,31 @@ def main():
         p=root/destination.lstrip('/')
         if p.is_symlink(): p.unlink()
         executable(tool, destination)
+        if tool.name == 'mke2fs':
+            copy('/etc/mke2fs.conf', '/etc/mke2fs.conf')
+    copy(Path(__file__).with_name('guest-capture.sh'), '/lib/alibi-lab.sh')
     for module in args.module_file:
-        copy(module, '/modules/'+module.name)
+        vermagic = subprocess.check_output(['modinfo','-F','vermagic',str(module)],text=True).strip()
+        if vermagic.split()[0] != args.kernel_release:
+            raise RuntimeError('module release mismatch: '+str(module))
+        if module.suffix == '.zst':
+            content = subprocess.check_output(['zstd','--decompress','--stdout',str(module)])
+            name = module.stem
+        elif module.suffix == '.xz':
+            import lzma
+            content = lzma.decompress(module.read_bytes()); name = module.stem
+        elif module.suffix == '.gz':
+            content = gzip.decompress(module.read_bytes()); name = module.stem
+        else:
+            content = module.read_bytes(); name = module.name
+        if sum(item['bytes'] for item in receipt['files']) + len(content) > 62_914_560:
+            raise RuntimeError('module copy exceeds 60 MiB input budget')
+        destination = root/'modules'/name
+        with destination.open('xb') as f: f.write(content)
+        receipt['files'].append(dict(source=str(module.absolute()),source_sha256=digest(module),
+                                      guest='/modules/'+name,sha256=digest(destination),
+                                      bytes=len(content),vermagic=vermagic,
+                                      transformation='decompressed' if name != module.name else 'identity'))
     (root/'etc/passwd').write_text('root:x:0:0:root:/:/bin/sh\nnobody:x:65534:65534:nobody:/:/bin/sh\n')
     (root/'etc/group').write_text('root:x:0:\nnogroup:x:65534:\n')
     (root/'etc/nsswitch.conf').write_text('passwd: files\ngroup: files\nhosts: files\n')
@@ -110,32 +140,57 @@ def main():
 printf 'ORACLE_UNAME_BEGIN\\n'
 uname -a
 printf 'ORACLE_UNAME_END\\n'
-printf 'ALIBI_RECEIPT_BEGIN baseline\\n'
-alibi check kernel-scream --json
-rc=$?
-printf '\\nALIBI_RECEIPT_END baseline rc=%s\\n' "$rc"
+. /lib/alibi-lab.sh
+lab_run baseline /bin/alibi check kernel-scream --json || exit 125
 exit 0
 '''
     (root/'scenario.sh').write_text(scenario)
     (root/'scenario.sh').chmod(0o755)
     (root/'init').write_text('''#!/bin/sh
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin LC_ALL=C
-mount -t proc proc /proc || exec sh
-mount -t sysfs sysfs /sys || exec sh
-mount -t devtmpfs devtmpfs /dev || exec sh
+boot_fail() {
+    printf '\\nALIBI_GUEST_BOOT_FAILED stage=%s rc=%s\\n' "$1" "$2"
+    /bin/busybox poweroff -f
+    while :; do /bin/busybox sleep 1; done
+}
+mount -t proc proc /proc || boot_fail bootstrap-command $?
+mount -t sysfs sysfs /sys || boot_fail bootstrap-command $?
+mount -t devtmpfs devtmpfs /dev || boot_fail bootstrap-command $?
 exec </dev/console >/dev/console 2>&1
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
-mount -t tmpfs -o size=70%,mode=755 guest-root /newroot || exec sh
-for d in bin sbin usr lib lib64 etc modules; do cp -a /$d /newroot/ || exec sh; done
+mount -t tmpfs -o size=70%,mode=755 guest-root /newroot || boot_fail bootstrap-command $?
+for d in bin sbin usr lib lib64 etc modules; do cp -a /$d /newroot/ || boot_fail bootstrap-command $?; done
 cp /scenario.sh /stage2 /newroot/
 mkdir -p /newroot/proc /newroot/sys /newroot/dev /newroot/tmp /newroot/run
 chmod 1777 /newroot/tmp
-mount --move /proc /newroot/proc || exec sh
-mount --move /sys /newroot/sys || exec sh
-mount --move /dev /newroot/dev || exec sh
+mount --move /proc /newroot/proc || boot_fail bootstrap-command $?
+mount --move /sys /newroot/sys || boot_fail bootstrap-command $?
+mount --move /dev /newroot/dev || boot_fail bootstrap-command $?
 exec switch_root /newroot /stage2
 ''')
+    if args.overlay_case:
+        init_path = root/'init'
+        before = """mount -t tmpfs -o size=70%,mode=755 guest-root /newroot || boot_fail bootstrap-command $?
+for d in bin sbin usr lib lib64 etc modules; do cp -a /$d /newroot/ || boot_fail bootstrap-command $?; done
+cp /scenario.sh /stage2 /newroot/"""
+        after = """CASE_ID=baseline
+for word in $(cat /proc/cmdline); do case "$word" in alibi_case=*) CASE_ID=${word#alibi_case=};; esac; done
+if [ "$CASE_ID" = OVERLAY_CASE ]; then
+    mkdir -p /substrate
+    mount -t tmpfs -o size=70%,mode=755 overlay-substrate /substrate || boot_fail bootstrap-command $?
+    mkdir -p /substrate/lower /substrate/upper /substrate/work
+    for d in bin sbin usr lib lib64 etc modules; do cp -a /$d /substrate/lower/ || boot_fail bootstrap-command $?; done
+    cp /scenario.sh /stage2 /substrate/lower/
+    insmod /modules/overlay.ko || boot_fail bootstrap-command $?
+    mount -t overlay overlay -o lowerdir=/substrate/lower,upperdir=/substrate/upper,workdir=/substrate/work /newroot || boot_fail bootstrap-command $?
+else
+    mount -t tmpfs -o size=70%,mode=755 guest-root /newroot || boot_fail bootstrap-command $?
+    for d in bin sbin usr lib lib64 etc modules; do cp -a /$d /newroot/ || boot_fail bootstrap-command $?; done
+    cp /scenario.sh /stage2 /newroot/
+fi""".replace('OVERLAY_CASE', "'"+args.overlay_case+"'")
+        init_path.write_text(init_path.read_text().replace(before, after))
+    receipt['overlay_case'] = args.overlay_case
     release = args.kernel_release or ''
     (root/'stage2').write_text('''#!/bin/sh
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin LC_ALL=C
@@ -166,7 +221,7 @@ while :; do sleep 1; done
     archive=out/'initramfs.cpio.gz'
     # cpio sees relative, NUL-delimited names from this exclusively owned tree.
     names=['.'] + sorted(str(p.relative_to(root)) for p in root.rglob('*'))
-    packed=subprocess.run(['cpio','--null','-o','--format=newc','--reproducible'],
+    packed=subprocess.run(['cpio','--null','-o','--format=newc','--reproducible','--owner=0:0'],
                           cwd=root,input=('\0'.join(names)+'\0').encode(),capture_output=True,check=True)
     # Add /dev/console to newc without creating a host device node. The kernel
     # opens it before /init can mount devtmpfs. Replace only the cpio trailer.

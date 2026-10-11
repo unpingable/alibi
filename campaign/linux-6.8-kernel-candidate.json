@@ -1,0 +1,36 @@
+{
+  "package": {
+    "Package": "linux-image-6.8.0-90-generic",
+    "Source": "linux-signed-hwe-6.8",
+    "Priority": "optional",
+    "Section": "kernel",
+    "Installed-Size": "14656",
+    "Maintainer": "Canonical Kernel Team <kernel-team@lists.ubuntu.com>",
+    "Architecture": "amd64",
+    "Version": "6.8.0-90.91~22.04.1",
+    "Recommends": "grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub | lilo, initramfs-tools | linux-initramfs-tool",
+    "Suggests": "fdutils, linux-hwe-6.8-tools, linux-headers-6.8.0-90-generic, linux-modules-extra-6.8.0-90-generic",
+    "Provides": "fuse-module, ivtv-modules, kvm-api-4, linux-image, redhat-cluster-modules, spl-dkms, spl-modules, v4l2loopback-dkms, v4l2loopback-modules, virtualbox-guest-modules, zfs-dkms, zfs-modules",
+    "Depends": "kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-6.8.0-90-generic",
+    "Conflicts": "linux-image-unsigned-6.8.0-90-generic",
+    "Filename": "pool/main/l/linux-signed-hwe-6.8/linux-image-6.8.0-90-generic_6.8.0-90.91~22.04.1_amd64.deb",
+    "Size": "14736848",
+    "MD5sum": "73cd8a74b734055e2f9a7a97a536a460",
+    "SHA1": "3e84190932d5d0ff96a8477f69efcaf488fa8818",
+    "SHA256": "26566b977d86105903d8f4ca8e9d807b4cc7791f2ad9065e634a6dcb687fe129",
+    "SHA512": "276b6965968db05186e4234c2d4cea1a53a752a52479e8b325deee4460c0ac946457f42aa129d0b785e2b5d7cf2d49422e5ff3e48a5eac04aaf0253bba64cf60",
+    "Description": "Signed kernel image generic",
+    "Description-md5": "b0fd0df88b1cd31408007b00d2458952",
+    "Built-Using": "linux-hwe-6.8 (= 6.8.0-90.91~22.04.1)",
+    "Origin": "Ubuntu",
+    "Bugs": "https://bugs.launchpad.net/ubuntu/+filebug"
+  },
+  "packages_xz_sha256": "6b6d61be8e24ba9b728ff4608df6912a02231afde62189dfe71ab300e7f1623f",
+  "stanza": "Package: linux-image-6.8.0-90-generic\nSource: linux-signed-hwe-6.8\nPriority: optional\nSection: kernel\nInstalled-Size: 14656\nMaintainer: Canonical Kernel Team <kernel-team@lists.ubuntu.com>\nArchitecture: amd64\nVersion: 6.8.0-90.91~22.04.1\nRecommends: grub-pc | grub-efi-amd64 | grub-efi-ia32 | grub | lilo, initramfs-tools | linux-initramfs-tool\nSuggests: fdutils, linux-hwe-6.8-tools, linux-headers-6.8.0-90-generic, linux-modules-extra-6.8.0-90-generic\nProvides: fuse-module, ivtv-modules, kvm-api-4, linux-image, redhat-cluster-modules, spl-dkms, spl-modules, v4l2loopback-dkms, v4l2loopback-modules, virtualbox-guest-modules, zfs-dkms, zfs-modules\nDepends: kmod, linux-base (>= 4.5ubuntu1~16.04.1), linux-modules-6.8.0-90-generic\nConflicts: linux-image-unsigned-6.8.0-90-generic\nFilename: pool/main/l/linux-signed-hwe-6.8/linux-image-6.8.0-90-generic_6.8.0-90.91~22.04.1_amd64.deb\nSize: 14736848\nMD5sum: 73cd8a74b734055e2f9a7a97a536a460\nSHA1: 3e84190932d5d0ff96a8477f69efcaf488fa8818\nSHA256: 26566b977d86105903d8f4ca8e9d807b4cc7791f2ad9065e634a6dcb687fe129\nSHA512: 276b6965968db05186e4234c2d4cea1a53a752a52479e8b325deee4460c0ac946457f42aa129d0b785e2b5d7cf2d49422e5ff3e48a5eac04aaf0253bba64cf60\nDescription: Signed kernel image generic\nDescription-md5: b0fd0df88b1cd31408007b00d2458952\nBuilt-Using: linux-hwe-6.8 (= 6.8.0-90.91~22.04.1)\nOrigin: Ubuntu\nBugs: https://bugs.launchpad.net/ubuntu/+filebug",
+  "status": "METADATA_ONLY_NO_DOWNLOAD",
+  "limits": [
+    "Requires package extraction to inspect config/builtins",
+    "Host6.5 modules cannot be reused",
+    "Second kernel environment shares constructed userspace; not separate full distribution qualification"
+  ]
+}
