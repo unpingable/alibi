@@ -187,6 +187,13 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
   distinct). Whole-table `df` is deliberately not used: one inaccessible unrelated
   mount (e.g. a permission-restricted FUSE mount) must not destroy all space
   evidence for the host.
+- Filesystem usage requires each df row's textual source and mountpoint to match
+  the pair requested from the mount snapshot. A mismatch, extra row or ambiguous
+  capacity columns makes that dimension inadequate while preserving other valid
+  dimensions. This is name correspondence, not mounted-object or generation
+  continuity: same-name replacement can remain undetected, and aliases/bind-view
+  reporting differences conservatively yield UNKNOWN. Literal spaces are matched
+  around the capacity columns without silently normalizing names.
 - Limitation: Alibi cannot know operator intent. A deliberately read-only root is
   reported with wording that says so; evidence is shown, the operator judges.
   ZFS and network filesystems are out of V0's mount model.

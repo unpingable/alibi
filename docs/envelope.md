@@ -128,3 +128,10 @@ process-group cleanup because child ownership is then unconfirmed. Reusing the
 collector as a library requires exclusive ownership of its child reaping and
 stable SIGCHLD disposition throughout collection; concurrent external reapers
 or disposition mutation are outside this contract.
+
+Filesystem capacity is accepted only when df reports the requested textual
+source and mountpoint with one unambiguous capacity row. If a path resolves to a
+different mount after the mount snapshot, mismatched capacity becomes incomplete
+evidence; any separately valid positive remains available. Device aliases, bind
+views or unsupported quoting can conservatively cause UNKNOWN. Matching names
+is not proof of stable superblock identity or absence of same-name replacement.
