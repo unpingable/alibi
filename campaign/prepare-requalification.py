@@ -47,7 +47,14 @@ def main():
     checkpoint = root / 'CHECKPOINT.json'
     assert checkpoint.is_file()
     checkpoint_data = json.loads(checkpoint.read_text())
-    assert not checkpoint_data.get('active_producers'), 'Root must admit exclusive construction before launch'
+    producers = checkpoint_data.get('active_producers', [])
+    assert len(producers) == 1, 'Root must register exactly this construction producer before launch'
+    producer = producers[0]
+    assert producer.get('kind') == 'archive-construction'
+    assert Path(producer['script']).resolve() == Path(__file__).resolve()
+    assert producer.get('script_sha256') == digest(__file__)
+    assert producer.get('source_revision') == revision
+    assert os.environ.get('INVOCATION_ID'), 'Detached execution identity required'
     initial = allocated(root)
     build_root = root / 'disclosed-builds'
     batch = root / 'disclosed-batch'
