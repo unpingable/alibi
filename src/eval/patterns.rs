@@ -119,12 +119,6 @@ pub const PATTERNS: &[Pattern] = &[
         excludes: &[],
     },
     Pattern {
-        needle: "EDAC",
-        label: "EDAC memory error report",
-        tags: &["memrot"],
-        excludes: &["Ver:", "detected (", ": v2.", ": v1."],
-    },
-    Pattern {
         needle: "Memory failure",
         label: "kernel memory failure",
         tags: &["memrot"],
@@ -184,7 +178,89 @@ pub const PATTERNS: &[Pattern] = &[
     },
 ];
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum EdacMessage {
+    Other,
+    Informational,
+    Error,
+    Unrecognized,
+}
+
+pub(crate) fn edac_message(line: &str) -> EdacMessage {
+    // Match event position, never a CE/UE token embedded in a device label.
+    // Acquired records retain their dmesg/journal framing; plain messages are
+    // also used by the pure evaluator fixtures.
+    let mut message = line.trim_start();
+    if message.starts_with('<') {
+        if let Some(end) = message.find('>') {
+            message = &message[end + 1..];
+        }
+    }
+    if message.starts_with('[') {
+        if let Some(end) = message.find(']') {
+            message = message[end + 1..].trim_start();
+        }
+    }
+    message = message.strip_prefix("kernel: ").unwrap_or(message);
+    let Some(edac) = message.strip_prefix("EDAC ") else {
+        return EdacMessage::Other;
+    };
+    // A journal continuation belongs to this record but is not a separately
+    // framed event. It cannot be assumed benign or supply missing fields in
+    // the first line's positive grammar.
+    let (first, multiline) = edac
+        .split_once('\n')
+        .map_or((edac, false), |(first, _)| (first, true));
+    let classification = classify_edac_body(first);
+    if multiline && classification != EdacMessage::Error {
+        EdacMessage::Unrecognized
+    } else {
+        classification
+    }
+}
+
+fn classify_edac_body(edac: &str) -> EdacMessage {
+    if edac.starts_with("MC: Ver: ")
+        || (edac.starts_with("amd64: ") && edac.contains(" detected ("))
+    {
+        return EdacMessage::Informational;
+    }
+    let Some(controller) = edac.strip_prefix("MC") else {
+        return EdacMessage::Unrecognized;
+    };
+    let Some((index, report)) = controller.split_once(": ") else {
+        return EdacMessage::Unrecognized;
+    };
+    if index.is_empty() || !index.bytes().all(|byte| byte.is_ascii_digit()) {
+        return EdacMessage::Unrecognized;
+    }
+    if report.starts_with("Giving out device to module ") {
+        return EdacMessage::Informational;
+    }
+    let mut fields = report.split_whitespace();
+    let Some(count) = fields
+        .next()
+        .filter(|field| !field.is_empty() && field.bytes().all(|byte| byte.is_ascii_digit()))
+        .and_then(|field| field.parse::<u64>().ok())
+    else {
+        return EdacMessage::Unrecognized;
+    };
+    if !matches!(fields.next(), Some("CE" | "UE")) || fields.next().is_none() {
+        return EdacMessage::Unrecognized;
+    }
+    if count == 0 {
+        EdacMessage::Informational
+    } else {
+        EdacMessage::Error
+    }
+}
+
 pub fn line_label_for(line: &str, tag: &str) -> Option<&'static str> {
+    match edac_message(line) {
+        EdacMessage::Error => return (tag == "memrot").then_some("EDAC memory error report"),
+        EdacMessage::Informational | EdacMessage::Unrecognized => return None,
+        EdacMessage::Other => {}
+    }
     PATTERNS
         .iter()
         .find(|p| {
@@ -269,6 +345,45 @@ mod tests {
         let (capped, total) = matches_for(&lines, "memrot");
         assert_eq!(total, 1);
         assert_eq!(capped[0].1, "EDAC memory error report");
+    }
+
+    #[test]
+    fn edac_classification_uses_event_prefix_not_label_vocabulary() {
+        for line in [
+            "EDAC MC0: Giving out device to module Hardware Error controller Memory failure: DEV 9 UE fault (POLLED)",
+            "<6>[ 1.0] EDAC MC0: Giving out device to module sample controller sample: DEV sample (POLLED)",
+            "[ 1.0] kernel: EDAC MC1: 0 CE memory read error on DIMM0",
+        ] {
+            assert_eq!(edac_message(line), EdacMessage::Informational);
+            for tag in ["memrot", "kernel-scream"] {
+                assert_eq!(line_label_for(line, tag), None);
+            }
+        }
+        for report in ["1 CE memory read error on DIMM0", "2 UE error on DIMM1"] {
+            assert_eq!(
+                edac_message(&format!("EDAC MC12: {report}")),
+                EdacMessage::Error
+            );
+        }
+        for report in [
+            "module label 9 CE error",
+            "-1 UE error",
+            "CE",
+            "3 CE",
+            "18446744073709551616 UE error",
+        ] {
+            assert_eq!(
+                edac_message(&format!("EDAC MC0: {report}")),
+                EdacMessage::Unrecognized
+            );
+        }
+        assert_eq!(
+            line_label_for(
+                "Kernel panic caused by EDAC initialization",
+                "kernel-scream"
+            ),
+            Some("kernel panic")
+        );
     }
 
     #[test]

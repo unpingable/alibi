@@ -13,7 +13,6 @@ pub fn render(receipt: &Receipt, verbose: bool) -> String {
         mtti,
         receipt.interrogation_complete.as_secs_f64()
     ));
-    let mut skipped_total = 0;
     for finding in &receipt.findings {
         out.push_str(&format!(
             "{:<10}{:<20} {}\n",
@@ -21,11 +20,26 @@ pub fn render(receipt: &Receipt, verbose: bool) -> String {
             finding.accusation,
             finding.summary
         ));
-        skipped_total += finding.skipped.len();
+        out.push_str(&format!(
+            "          decided_at_ms={} innocence_at_ms={} sources:",
+            finding.decided_at.as_millis(),
+            finding
+                .innocence_at
+                .map(|d| d.as_millis().to_string())
+                .unwrap_or_else(|| "n/a".to_string())
+        ));
+        for role in &finding.source_roles {
+            out.push_str(&format!(
+                " {}({})",
+                role.source.as_str(),
+                role.role.as_str()
+            ));
+        }
+        out.push('\n');
+        section(&mut out, "skipped", &finding.skipped);
         if verbose {
             section(&mut out, "indications", &finding.indications);
             section(&mut out, "evidence", &finding.evidence);
-            section(&mut out, "skipped", &finding.skipped);
         }
     }
     let innocence = if receipt.innocence_established {
@@ -38,11 +52,35 @@ pub fn render(receipt: &Receipt, verbose: bool) -> String {
         receipt.verdict.as_str(),
         innocence
     ));
-    if !verbose && skipped_total > 0 {
+    out.push_str(&format!(
+        "\nenvelope: started_at={} boot_time={}\n",
+        receipt.started_at,
+        receipt
+            .boot_time
+            .map(crate::timeutil::rfc3339_utc)
+            .unwrap_or_else(|| "unavailable".to_string())
+    ));
+    for source in &receipt.sources {
         out.push_str(&format!(
-            "note: {} check(s) skipped or unavailable; --verbose for detail\n",
-            skipped_total
+            "  {} status={} completeness={} method={:?} elapsed_ms={} completed_at_ms={}\n",
+            source.name,
+            source.status.as_str(),
+            source.completeness.as_str(),
+            source.method.as_deref().unwrap_or("unavailable"),
+            source.elapsed.as_millis(),
+            source.completed_at.as_millis()
         ));
+        if let Some(window) = source.window {
+            out.push_str(&format!(
+                "    window_started_at_ms={} window_ended_at_ms={} duration_ms={}\n",
+                window.started_at.as_millis(),
+                window.ended_at.as_millis(),
+                window.duration().as_millis()
+            ));
+        }
+        if let Some(detail) = &source.detail {
+            out.push_str(&format!("    detail={:?}\n", detail));
+        }
     }
     out
 }
@@ -79,6 +117,45 @@ mod tests {
             findings: vec![],
             boot_time: None,
             sources: vec![],
+        }
+    }
+
+    #[test]
+    fn default_human_preserves_failed_required_source_envelope() {
+        use crate::collect::{Completeness, SourceId, Status};
+        use crate::eval::{Finding, SourceRole};
+        use crate::receipt::SourceRecord;
+        let mut receipt = receipt(None);
+        let mut finding = Finding::new("network-choke-point");
+        finding.verdict = Verdict::Degraded;
+        finding.summary = "no default route".to_string();
+        finding.source_roles = vec![SourceRole::required(SourceId::KernelLog)];
+        receipt.findings.push(finding);
+        receipt.sources.push(SourceRecord {
+            name: "kernel-log",
+            status: Status::Unavailable,
+            completeness: Completeness::None,
+            method: Some("dmesg; journalctl".to_string()),
+            detail: Some("permission denied".to_string()),
+            elapsed: Duration::from_millis(7),
+            completed_at: Duration::from_millis(8),
+            window: None,
+        });
+        let rendered = render(&receipt, false);
+        for expected in [
+            "kernel-log",
+            "unavailable",
+            "none",
+            "dmesg; journalctl",
+            "permission denied",
+            "required",
+            "elapsed_ms=7",
+            "completed_at_ms=8",
+        ] {
+            assert!(
+                rendered.contains(expected),
+                "missing {expected}: {rendered}"
+            );
         }
     }
 

@@ -198,3 +198,37 @@ fn receipt_v2_declares_receipt_version() {
     let rendered = json::render(&golden_receipt());
     assert!(rendered.contains("\"receipt_version\": 2"));
 }
+
+#[test]
+fn default_human_exposes_canonical_envelope_without_verbose() {
+    let receipt = golden_receipt();
+    let rendered = alibi::receipt::human::render(&receipt, false);
+    for source in &receipt.sources {
+        assert!(rendered.contains(&format!(
+            "{} status={} completeness={}",
+            source.name,
+            source.status.as_str(),
+            source.completeness.as_str()
+        )));
+        if let Some(detail) = &source.detail {
+            assert!(rendered.contains(detail));
+        }
+    }
+    for expected in [
+        "kernel-log(required)",
+        "net(required)",
+        "window_started_at_ms=56",
+        "window_ended_at_ms=2059",
+        "duration_ms=2003",
+        "elapsed_ms=2003",
+        "completed_at_ms=2059",
+        "method=\"dmesg\"",
+        "boot_time=2025-09-03T11:46:40Z",
+        "conntrack status=malformed completeness=none",
+    ] {
+        assert!(
+            rendered.contains(expected),
+            "missing {expected}: {rendered}"
+        );
+    }
+}

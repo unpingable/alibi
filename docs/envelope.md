@@ -23,6 +23,10 @@ sample and does not list network sources. Within a finding, a required source
 must be complete before `CLEAR`; a supporting source adds context or can provide
 positive evidence, but its absence does not block `CLEAR`.
 
+Default human output includes the collected source envelope and per-finding source
+roles, including failures when other evidence already establishes DEGRADED.
+`--verbose` adds expanded evidence and indications. JSON Receipt V2 is unchanged.
+
 ## Platform assumptions
 
 - Linux only. Facts come from `/proc`, `/sys`, and a small set of standard
@@ -34,7 +38,13 @@ positive evidence, but its absence does not block `CLEAR`.
   affected accusations report `UNKNOWN`.
 - The network evidence window is a bounded counter sample whose actual monotonic
   start, end, and duration are part of the envelope. Alibi detects error/drop
-  deltas across that window, not trends over uptime.
+  deltas across that window, not trends over uptime. Each pair uses the same
+  retained sysfs counter descriptor, opened relative to one held interface
+  directory. Missing, removed or unreadable required counters prevent CLEAR;
+  reopening a reused name never repairs missing evidence. This requires genuine
+  sysfs attributes and coherent host proc/sys namespace views. Same-object
+  namespace round trips can remain comparable; uninterrupted namespace residence,
+  every transient interface and hidden driver counter resets are not established.
 - V0 performs **no remediation** (strictly read-only) and **no active network
   probes** — no pings, no DNS lookups, no synthetic traffic of any kind.
 
@@ -141,3 +151,18 @@ Even ordinary expected names cannot authenticate all actual labels: trailing
 source-name spaces in GNU df output may look like column padding. The check
 therefore establishes correspondence to the admitted printed representation,
 not arbitrary kernel-label identity.
+
+## EDAC report coverage
+
+A loaded or registered EDAC controller is not a memory-error indication. Supported
+positive log evidence is an EDAC memory-controller event beginning with a positive
+count and CE or UE classification. Known informational registration and startup
+forms are ignored as positives. Other EDAC-origin forms are explicitly unclassified
+and block memrot CLEAR unless another supported indication warrants DEGRADED.
+Driver formats beyond this finite grammar are not silently treated as clean.
+For multiline EDAC journal records, a supported positive must be complete on the
+first physical line. Otherwise the whole record is unclassified; a benign prefix
+does not make its continuations clean evidence.
+EDAC counters remain independent evidence; absent controllers on a VM still do not
+establish hardware memory integrity. Log representation does not authenticate its
+contents or establish complete history.

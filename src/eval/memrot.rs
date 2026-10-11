@@ -63,6 +63,13 @@ impl Evaluator for Memrot {
         let log_ok = facts.kernel_log.is_ok();
         match facts.kernel_log.get() {
             Some(log) => {
+                for line in &log.lines {
+                    if patterns::edac_message(line) == patterns::EdacMessage::Unrecognized {
+                        let detail = format!("unrecognized EDAC log report; memory-error interpretation unavailable: {}", line);
+                        required_failures.push(detail.clone());
+                        finding.skipped.push(detail);
+                    }
+                }
                 let (matches, _) = patterns::matches_for(&log.lines, self.accusation());
                 for (line, label) in matches {
                     finding.indications.push(format!("{}: {}", label, line));
@@ -86,7 +93,7 @@ impl Evaluator for Memrot {
                 let mut parts = required_failures;
                 if log_ok {
                     parts.push(
-                        "no kernel-reported memory errors — hardware memory integrity not established"
+                        "no recognized kernel memory-error signature matched — hardware memory integrity not established"
                             .to_string(),
                     );
                 }
@@ -204,6 +211,42 @@ mod tests {
         assert!(finding
             .summary
             .contains("hardware memory integrity not established"));
+    }
+
+    #[test]
+    fn registration_is_not_a_memory_error_when_edac_is_absent() {
+        let mut facts = fixtures::clean_facts();
+        facts.edac = Source::failed(Status::Unsupported, "no controllers", Duration::ZERO);
+        facts.kernel_log = src_ok(KernelLog {
+            lines: vec!["<6>[ 0.0] EDAC MC0: Giving out device to module fixture_edac controller fixture: DEV fixture (POLLED)".to_string()],
+            method: "dmesg".to_string(),
+        });
+        let finding = Memrot.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+        assert!(finding.indications.is_empty());
+    }
+
+    #[test]
+    fn unknown_edac_form_blocks_clear_but_retains_supported_positives() {
+        let mut facts = fixtures::clean_facts();
+        facts.kernel_log = src_ok(KernelLog {
+            lines: vec!["EDAC unusual_driver: report format unavailable".to_string()],
+            method: "dmesg".to_string(),
+        });
+        let finding = Memrot.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+        assert!(finding
+            .skipped
+            .iter()
+            .any(|line| line.contains("unrecognized EDAC")));
+        facts
+            .kernel_log
+            .value
+            .as_mut()
+            .unwrap()
+            .lines
+            .push("EDAC MC0: 2 UE error on DIMM0".to_string());
+        assert_eq!(Memrot.evaluate(&facts).verdict, Verdict::Degraded);
     }
 
     #[test]

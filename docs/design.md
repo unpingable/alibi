@@ -104,12 +104,16 @@ collector → normalized facts (+ per-source status) → failure-class evaluator
   Collectors never interpret. Dependencies are explicit: for example, filesystem
   usage collection consumes the mount set rather than rediscovering it.
 - **Evaluation** (`eval`): pure functions `facts → Finding`. No I/O, no command
-  parsing. Fully fixture-testable. A shared, explicit substring-pattern table tags
-  kernel-log lines to failure classes; no regex engine. Patterns carry per-pattern
-  exclusion substrings so benign banners do not match (e.g. the `EDAC` needle
-  excludes `Ver:`/`detected (`/version lines — a loaded EDAC core is not a memory
-  error). The table is curated and versioned in one place; that is the mechanism,
-  not a bug.
+  parsing. Fully fixture-testable. A shared, explicit pattern table tags
+  kernel-log lines to failure classes; no regex engine. EDAC-origin messages are
+  classified before generic signatures: counted positive CE/UE reports establish
+  memory-error indications, known informational registration/version/detection
+  forms do not, and unsupported EDAC forms prevent memrot exoneration. Controller
+  labels are not searched for incidental error signatures. Multiline EDAC
+  records are unclassified unless their first physical line independently
+  establishes a supported positive; continuations cannot supply missing grammar
+  fields or silently inherit an informational classification. Other curated
+  signatures retain their existing substring matching.
 - **Presentation** (`receipt`): human renderer, zero-dependency JSON emitter.
   Verdict logic never contains parsing; parsing never contains verdicts.
 
@@ -117,7 +121,9 @@ The **interrogation envelope** is recorded on every receipt: each planned source
 name, status, completeness, method, elapsed time, monotonic completion offset, and
 bounded sample window where applicable (plus boot time from `/proc/stat` btime).
 Each finding separately records its source names and their required or supporting
-roles. Alibi never says "this machine is healthy"; it says "within this explicitly
+roles. Default human output and JSON both include this envelope and any source
+limitations. Human `--verbose` adds expanded evidence and indications; it is not
+required to discover missing required evidence. Alibi never says "this machine is healthy"; it says "within this explicitly
 described envelope, no evidence supports these named accusations."
 
 Kernel-log acquisition requests `dmesg --raw --force-prefix`,
@@ -235,6 +241,17 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
   device (`*`, e.g. `blackhole default`) are not default routes for this purpose.
 - Counters are cumulative since boot/driver load, so **absolute values never
   verdict**; only the bounded delta does. The 2 s window is part of the envelope.
+- Counter pairs are read through the same retained sysfs descriptors. All opens
+  are relative to one held interface directory; a failed descriptor is never
+  replaced by reopening its name. Reads seek to zero to obtain fresh kernel
+  values. A removed/recreated device cannot provide the original descriptor's
+  second value, even when name, MAC or ifindex are reused. Inadequate required
+  pairs prevent CLEAR; independently comparable positive evidence is retained.
+- This is same-object endpoint sampling under genuine sysfs semantics, not
+  continuous namespace/topology observation. A device can leave and return to a
+  namespace while retaining its object. Transient interfaces, hidden driver
+  counter resets and independently substituted proc/sys views are not covered.
+  No atomic snapshot or continuous network-path availability is asserted.
 - Down/unused interfaces are normal and are evidence, not accusations.
 - `NOT_APPLICABLE` when no non-loopback interface exists.
 

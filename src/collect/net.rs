@@ -1,6 +1,9 @@
 use crate::collect::{Source, Status};
-use std::fs;
-use std::io::ErrorKind;
+use std::fs::{self, File};
+use std::io::{ErrorKind, Read, Seek, SeekFrom};
+use std::os::fd::AsRawFd;
+use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 pub const NET_SAMPLE_WINDOW: Duration = Duration::from_secs(2);
@@ -55,10 +58,23 @@ pub fn collect_net(t0: Instant) -> Source<NetFacts> {
     };
     let mut issue_status = Status::Unavailable;
     let sample_started_at = t0.elapsed();
-    let first: Vec<Counters> = names
+    // Each interface directory and every counter descriptor stay open across
+    // both reads. A pathname, MAC address or ifindex is not a generation token.
+    let mut pinned: Vec<_> = names
         .iter()
         .map(|name| {
-            let (counters, counter_issues) = read_counters(name);
+            PinnedInterface::open(Path::new(SYS_CLASS_NET), name)
+                .map_err(|detail| issues.push(detail))
+                .ok()
+        })
+        .collect();
+    let first: Vec<Counters> = pinned
+        .iter_mut()
+        .map(|interface| {
+            let (counters, counter_issues) = match interface {
+                Some(interface) => interface.read_counters(),
+                None => (Counters::missing(), Vec::new()),
+            };
             add_counter_issues(&mut issues, &mut issue_status, counter_issues);
             counters
         })
@@ -76,8 +92,17 @@ pub fn collect_net(t0: Instant) -> Source<NetFacts> {
     let interfaces: Vec<Iface> = names
         .iter()
         .zip(first)
-        .map(|(name, first)| {
-            let (second, counter_issues) = read_counters(name);
+        .zip(pinned.iter_mut())
+        .map(|((name, first), interface)| {
+            let (second, counter_issues) = match interface {
+                Some(interface) => {
+                    if let Err(detail) = interface.check_name() {
+                        issues.push(detail);
+                    }
+                    interface.read_counters()
+                }
+                None => (Counters::missing(), Vec::new()),
+            };
             add_counter_issues(&mut issues, &mut issue_status, counter_issues);
             for (label, before, after) in required_counter_pairs(first, second) {
                 if let (Some(before), Some(after)) = (before, after) {
@@ -91,10 +116,18 @@ pub fn collect_net(t0: Instant) -> Source<NetFacts> {
                 }
             }
             Iface {
-                is_virtual: is_virtual(name),
-                operstate: read_sysfs(&format!("{}/{}/operstate", SYS_CLASS_NET, name))
+                is_virtual: interface.as_ref().is_some_and(|i| i.is_virtual),
+                operstate: interface
+                    .as_ref()
+                    .and_then(|i| i.read_attribute("operstate"))
                     .unwrap_or_else(|| "unknown".to_string()),
-                carrier: read_carrier(name),
+                carrier: interface.as_ref().and_then(|i| {
+                    match i.read_attribute("carrier")?.as_str() {
+                        "1" => Some(true),
+                        "0" => Some(false),
+                        _ => None,
+                    }
+                }),
                 second,
                 name: name.clone(),
                 first,
@@ -107,13 +140,17 @@ pub fn collect_net(t0: Instant) -> Source<NetFacts> {
         sample_window: sample_ended_at.saturating_sub(sample_started_at),
     };
     let source = if issues.is_empty() {
-        Source::ok(facts, SYS_CLASS_NET, start.elapsed())
+        Source::ok(
+            facts,
+            "/sys/class/net (pinned counter descriptors; seek/read twice)",
+            start.elapsed(),
+        )
     } else if !facts.interfaces.is_empty() {
         Source::partial(
             facts,
             issue_status,
             issues.join("; "),
-            SYS_CLASS_NET,
+            "/sys/class/net (pinned counter descriptors; seek/read twice)",
             start.elapsed(),
         )
     } else {
@@ -176,51 +213,148 @@ fn required_counter_pairs(
     ]
 }
 
-fn is_virtual(name: &str) -> bool {
-    fs::read_link(format!("{}/{}", SYS_CLASS_NET, name))
-        .map(|t| t.to_string_lossy().contains("/devices/virtual/"))
-        .unwrap_or(false)
-}
-
-fn read_sysfs(path: &str) -> Option<String> {
-    fs::read_to_string(path).ok().map(|s| s.trim().to_string())
-}
-
-fn read_carrier(name: &str) -> Option<bool> {
-    match read_sysfs(&format!("{}/{}/carrier", SYS_CLASS_NET, name))?.as_str() {
-        "1" => Some(true),
-        "0" => Some(false),
-        _ => None,
+impl Counters {
+    fn missing() -> Self {
+        Self {
+            rx_errors: None,
+            rx_dropped: None,
+            tx_errors: None,
+            tx_dropped: None,
+            rx_packets: None,
+            tx_packets: None,
+        }
     }
 }
 
-fn read_stat(name: &str, stat: &str) -> Result<u64, (Status, String)> {
-    let path = format!("{}/{}/statistics/{}", SYS_CLASS_NET, name, stat);
-    let raw = fs::read_to_string(&path)
-        .map_err(|error| (Status::Unavailable, format!("{}: {}", path, error)))?;
-    raw.trim()
-        .parse()
-        .map_err(|_| (Status::Malformed, format!("{}: not a number", path)))
+const COUNTERS: [&str; 6] = [
+    "rx_errors",
+    "rx_dropped",
+    "tx_errors",
+    "tx_dropped",
+    "rx_packets",
+    "tx_packets",
+];
+
+struct PinnedInterface {
+    directory: File,
+    path: PathBuf,
+    counters: Vec<Result<File, String>>,
+    is_virtual: bool,
 }
 
-fn read_counters(name: &str) -> (Counters, Vec<(Status, String)>) {
-    let mut required_issues = Vec::new();
-    let mut required = |stat| match read_stat(name, stat) {
-        Ok(value) => Some(value),
-        Err(issue) => {
-            required_issues.push(issue);
-            None
+impl PinnedInterface {
+    fn open(root: &Path, name: &str) -> Result<Self, String> {
+        let path = root.join(name);
+        let directory =
+            File::open(&path).map_err(|error| format!("{}: {}", path.display(), error))?;
+        if !directory.metadata().map_err(|e| e.to_string())?.is_dir() {
+            return Err(format!("{}: not an interface directory", path.display()));
         }
-    };
-    let counters = Counters {
-        rx_errors: required("rx_errors"),
-        rx_dropped: required("rx_dropped"),
-        tx_errors: required("tx_errors"),
-        tx_dropped: required("tx_dropped"),
-        rx_packets: read_stat(name, "rx_packets").ok(),
-        tx_packets: read_stat(name, "tx_packets").ok(),
-    };
-    (counters, required_issues)
+        // The proc descriptor link resolves the held directory object, even if
+        // the original name is replaced while its children are being opened.
+        // Never fall back to reopening the interface pathname.
+        let anchored = PathBuf::from(format!("/proc/self/fd/{}", directory.as_raw_fd()));
+        let counters = COUNTERS
+            .iter()
+            .map(|stat| {
+                File::open(anchored.join("statistics").join(stat))
+                    .map_err(|error| error.to_string())
+            })
+            .collect();
+        let is_virtual = fs::read_link(&anchored)
+            .map(|target| target.to_string_lossy().contains("/devices/virtual/"))
+            .unwrap_or(false);
+        let interface = Self {
+            directory,
+            path,
+            counters,
+            is_virtual,
+        };
+        interface.check_name()?;
+        Ok(interface)
+    }
+
+    fn anchored(&self) -> PathBuf {
+        PathBuf::from(format!("/proc/self/fd/{}", self.directory.as_raw_fd()))
+    }
+
+    fn check_name(&self) -> Result<(), String> {
+        let held = self.directory.metadata().map_err(|e| e.to_string())?;
+        let visible = fs::metadata(&self.path).map_err(|error| {
+            format!(
+                "{}: interface identity unavailable: {}",
+                self.path.display(),
+                error
+            )
+        })?;
+        if held.dev() != visible.dev() || held.ino() != visible.ino() {
+            return Err(format!(
+                "{}: interface object changed during sample",
+                self.path.display()
+            ));
+        }
+        Ok(())
+    }
+
+    fn read_attribute(&self, name: &str) -> Option<String> {
+        fs::read_to_string(self.anchored().join(name))
+            .ok()
+            .map(|s| s.trim().to_string())
+    }
+
+    fn read_counters(&mut self) -> (Counters, Vec<(Status, String)>) {
+        let mut values = [None; 6];
+        let mut issues = Vec::new();
+        for (index, descriptor) in self.counters.iter_mut().enumerate() {
+            let value = match descriptor {
+                Ok(file) => read_counter(file),
+                Err(error) => Err((Status::Unavailable, error.clone())),
+            };
+            match value {
+                Ok(value) => values[index] = Some(value),
+                Err((status, error)) if index < 4 => issues.push((
+                    status,
+                    format!(
+                        "{}/statistics/{}: pinned counter unavailable: {}",
+                        self.path.display(),
+                        COUNTERS[index],
+                        error
+                    ),
+                )),
+                Err(_) => {}
+            }
+        }
+        (
+            Counters {
+                rx_errors: values[0],
+                rx_dropped: values[1],
+                tx_errors: values[2],
+                tx_dropped: values[3],
+                rx_packets: values[4],
+                tx_packets: values[5],
+            },
+            issues,
+        )
+    }
+}
+
+fn read_counter(file: &mut File) -> Result<u64, (Status, String)> {
+    // Seeking to zero forces a fresh sysfs seq-file read, rather than retaining
+    // the prior userspace value or consuming an already-buffered suffix. On
+    // device removal kernfs deactivation makes the old read fail; a same-name
+    // successor cannot supply this descriptor's second observation.
+    file.seek(SeekFrom::Start(0))
+        .map_err(|e| (Status::Unavailable, e.to_string()))?;
+    let mut raw = String::new();
+    file.take(129)
+        .read_to_string(&mut raw)
+        .map_err(|e| (Status::Unavailable, e.to_string()))?;
+    if raw.len() > 128 {
+        return Err((Status::Malformed, "counter exceeds 128 bytes".to_string()));
+    }
+    raw.trim()
+        .parse()
+        .map_err(|_| (Status::Malformed, "not a number".to_string()))
 }
 
 pub fn collect_routes() -> Source<RouteFacts> {
@@ -539,6 +673,87 @@ eth0\t00000000\t0101A8C0\tzz\t0\t0\t100\t00000000\t0\t0\t0
             .unwrap()
             .contains("topology changed"));
         assert!(topology_change_detail(&first, &first).is_none());
+    }
+
+    struct CounterFixture(std::path::PathBuf);
+
+    impl CounterFixture {
+        fn new() -> Self {
+            use std::sync::atomic::{AtomicU64, Ordering};
+            static NEXT: AtomicU64 = AtomicU64::new(0);
+            let path = std::env::temp_dir().join(format!(
+                "alibi-pinned-net-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+
+        fn interface(&self, name: &str, value: u64) {
+            let dir = self.0.join(name).join("statistics");
+            fs::create_dir_all(&dir).unwrap();
+            for stat in COUNTERS {
+                fs::write(dir.join(stat), format!("{value}\n")).unwrap();
+            }
+            fs::write(self.0.join(name).join("operstate"), "up\n").unwrap();
+        }
+    }
+
+    impl Drop for CounterFixture {
+        fn drop(&mut self) {
+            fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+
+    #[test]
+    fn retained_descriptors_do_not_reopen_a_replaced_name() {
+        // Ordinary files establish pathname/descriptor mechanics only. Actual
+        // kernfs removal must also be tested in a disposable Linux guest.
+        let fixture = CounterFixture::new();
+        fixture.interface("same0", 1);
+        let mut interface = PinnedInterface::open(&fixture.0, "same0").unwrap();
+        assert_eq!(interface.read_counters().0.rx_errors, Some(1));
+        fs::rename(fixture.0.join("same0"), fixture.0.join("old0")).unwrap();
+        fixture.interface("same0", 900);
+        fs::write(fixture.0.join("old0/statistics/rx_errors"), "3\n").unwrap();
+        assert!(interface
+            .check_name()
+            .unwrap_err()
+            .contains("object changed"));
+        let (second, issues) = interface.read_counters();
+        assert!(issues.is_empty());
+        assert_eq!(second.rx_errors, Some(3));
+        assert_eq!(second.tx_errors, Some(1));
+        assert_eq!(interface.read_attribute("operstate").as_deref(), Some("up"));
+    }
+
+    #[test]
+    fn failed_open_is_never_replaced_with_a_later_counter() {
+        let fixture = CounterFixture::new();
+        fixture.interface("same0", 0);
+        fs::remove_file(fixture.0.join("same0/statistics/rx_errors")).unwrap();
+        let mut interface = PinnedInterface::open(&fixture.0, "same0").unwrap();
+        fs::write(fixture.0.join("same0/statistics/rx_errors"), "900\n").unwrap();
+        let (counters, issues) = interface.read_counters();
+        assert_eq!(counters.rx_errors, None);
+        assert_eq!(counters.tx_errors, Some(0));
+        assert_eq!(issues.len(), 1);
+    }
+
+    #[test]
+    fn seek_reloads_and_overlong_counter_is_not_accepted_as_a_prefix() {
+        let fixture = CounterFixture::new();
+        fixture.interface("same0", 0);
+        let mut interface = PinnedInterface::open(&fixture.0, "same0").unwrap();
+        assert_eq!(interface.read_counters().0.rx_errors, Some(0));
+        let path = fixture.0.join("same0/statistics/rx_errors");
+        fs::write(&path, "7\n").unwrap();
+        assert_eq!(interface.read_counters().0.rx_errors, Some(7));
+        fs::write(path, format!("7{}invalid", " ".repeat(127))).unwrap();
+        let (counters, issues) = interface.read_counters();
+        assert_eq!(counters.rx_errors, None);
+        assert_eq!(issues[0].0, Status::Malformed);
     }
 
     #[test]

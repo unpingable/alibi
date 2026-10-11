@@ -171,6 +171,38 @@ mod tests {
     use crate::collect::Completeness;
 
     #[test]
+    fn edac_journal_continuation_is_not_a_clean_negative() {
+        use crate::eval::{fixtures, memrot::Memrot, Evaluator, Verdict};
+        let first = "[ 1.0] kernel: EDAC MC0: Giving out device to module sample controller sample: DEV sample (POLLED)";
+        let indent = " ".repeat(first.find(": ").unwrap() + 2);
+        let output = format!("{first}\n{indent}EDAC MC0: unsupported error report\n");
+        let source = parse_output(&output, true, "journal fixture", Duration::ZERO).unwrap();
+        assert!(source.is_complete());
+        assert_eq!(source.get().unwrap().lines.len(), 1);
+        let mut facts = fixtures::clean_facts();
+        facts.kernel_log = source;
+        assert_eq!(Memrot.evaluate(&facts).verdict, Verdict::Unknown);
+    }
+
+    #[test]
+    fn edac_journal_positive_grammar_stays_on_first_physical_line() {
+        use crate::eval::{fixtures, memrot::Memrot, Evaluator, Verdict};
+        for (report, expected) in [
+            ("2 CE", Verdict::Unknown),
+            ("2 CE memory read error on DIMM0", Verdict::Degraded),
+        ] {
+            let first = format!("[ 1.0] kernel: EDAC MC0: {report}");
+            let indent = " ".repeat(first.find(": ").unwrap() + 2);
+            let output = format!("{first}\n{indent}additional event information\n");
+            let source = parse_output(&output, true, "journal fixture", Duration::ZERO).unwrap();
+            assert!(source.is_complete());
+            let mut facts = fixtures::clean_facts();
+            facts.kernel_log = source;
+            assert_eq!(Memrot.evaluate(&facts).verdict, expected);
+        }
+    }
+
+    #[test]
     fn explicit_representations_accept_benign_records() {
         for (text, journal) in [
             ("<6>[    0.000000] Linux version test\n", false),
