@@ -8,6 +8,7 @@ esac
 [ "$(hostname)" = alibi-disposable-guest ] || exit 64
 [ "$(stat -f -c %T /)" = tmpfs ] || exit 64
 
+. /lib/alibi-lab.sh
 iface=$(ip -o link show | awk -F': ' '$2 != "lo" {print $2; exit}')
 [ -n "$iface" ] || { echo 'F7: no isolated guest NIC'; exit 1; }
 ip link set lo up
@@ -24,11 +25,8 @@ observe() {
   cat /proc/self/mountinfo
   dmesg
   printf 'ORACLE_END %s\nALIBI_RECEIPT_BEGIN %s\n' "$1" "$1"
-  set +e
-  alibi check network-choke-point --json
-  code=$?
-  set -e
-  printf '\nALIBI_RECEIPT_END %s rc=%s uptime=' "$1" "$code"
+  lab_run "$1" alibi check network-choke-point --json
+  printf '\nALIBI_RECEIPT_END %s uptime=' "$1"
   cat /proc/uptime
   cat /proc/net/route /proc/net/ipv6_route
 }
