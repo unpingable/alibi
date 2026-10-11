@@ -23,17 +23,28 @@ sample and does not list network sources. Within a finding, a required source
 must be complete before `CLEAR`; a supporting source adds context or can provide
 positive evidence, but its absence does not block `CLEAR`.
 
+Default human output includes the collected source envelope and per-finding source
+roles, including failures when other evidence already establishes DEGRADED.
+`--verbose` adds expanded evidence and indications. JSON Receipt V2 is unchanged.
+
 ## Platform assumptions
 
 - Linux only. Facts come from `/proc`, `/sys`, and a small set of standard
   tools (`dmesg`, `journalctl`, `df`).
 - No systemd is required, but the kernel-log fallback prefers it: Alibi tries
-  `dmesg` first, then `journalctl -k -b --no-pager --quiet`. On non-systemd
+  `dmesg --raw --force-prefix` first, then
+  `journalctl -k -b --no-pager --quiet -o short-monotonic --no-hostname --all`. On non-systemd
   hosts without dmesg access, kernel-log evidence is unavailable and the
   affected accusations report `UNKNOWN`.
 - The network evidence window is a bounded counter sample whose actual monotonic
   start, end, and duration are part of the envelope. Alibi detects error/drop
-  deltas across that window, not trends over uptime.
+  deltas across that window, not trends over uptime. Each pair uses the same
+  retained sysfs counter descriptor, opened relative to one held interface
+  directory. Missing, removed or unreadable required counters prevent CLEAR;
+  reopening a reused name never repairs missing evidence. This requires genuine
+  sysfs attributes and coherent host proc/sys namespace views. Same-object
+  namespace round trips can remain comparable; uninterrupted namespace residence,
+  every transient interface and hidden driver counter resets are not established.
 - V0 performs **no remediation** (strictly read-only) and **no active network
   probes** — no pings, no DNS lookups, no synthetic traffic of any kind.
 
@@ -100,3 +111,58 @@ Its `mtti_ms` is numeric only when every finding is `CLEAR` or
 when all collection and evaluation finished, before receipt construction and
 excluding serialization/output. See [design.md](design.md) §4 for the normative
 semantics.
+
+## Acquisition limits
+
+Commands must finish and close both output streams within their acquisition
+deadline. Each stream is limited to 8 MiB; a cap, read failure, timeout or invalid
+UTF-8 produces inadequate evidence, never a complete negative result from the
+retained prefix. Transport failures currently discard that command's output,
+including any positive prefix. Structured log records survive malformed
+neighboring records as partial evidence. Selected log formats require supported
+command options; unsupported formats fall back or produce UNKNOWN.
+
+Numeric log framing validates representation only. It cannot authenticate a
+substituted command, detect all valid-looking corruption, establish freshness,
+or recover overwritten history. Complete acquisition means the currently
+retained requested output was acquired without known loss, not a complete boot
+history. Cleanup uses the command's dedicated process group and a separate
+100 ms polling allowance; inability to reap is explicitly reported. Kernel
+scheduling and uninterruptible waits prevent a universal elapsed-time bound.
+
+Command collection currently qualifies the Linux x86_64 GNU signal ABI. Before
+spawning, Alibi requires default SIGCHLD handling without SA_NOCLDWAIT; ignored
+or custom handlers and other target ABIs produce inadequate evidence. It does
+not normalize or modify inherited signal handling. A wait error prevents numeric
+process-group cleanup because child ownership is then unconfirmed. Reusing the
+collector as a library requires exclusive ownership of its child reaping and
+stable SIGCHLD disposition throughout collection; concurrent external reapers
+or disposition mutation are outside this contract.
+
+Filesystem capacity is accepted only when df reports the requested textual
+source and mountpoint with one unambiguous capacity row. If a path resolves to a
+different mount after the mount snapshot, mismatched capacity becomes incomplete
+evidence; any separately valid positive remains available. Device aliases, bind
+views or unsupported quoting can conservatively cause UNKNOWN. Matching names
+is not proof of stable superblock identity or absence of same-name replacement.
+
+Empty or boundary-whitespace expected df source/mountpoint names are unsupported.
+Even ordinary expected names cannot authenticate all actual labels: trailing
+source-name spaces in GNU df output may look like column padding. The check
+therefore establishes correspondence to the admitted printed representation,
+not arbitrary kernel-label identity.
+
+## EDAC report coverage
+
+A loaded or registered EDAC controller is not a memory-error indication. Supported
+positive log evidence is an EDAC memory-controller event beginning with a positive
+count and CE or UE classification. Known informational registration and startup
+forms are ignored as positives. Other EDAC-origin forms are explicitly unclassified
+and block memrot CLEAR unless another supported indication warrants DEGRADED.
+Driver formats beyond this finite grammar are not silently treated as clean.
+For multiline EDAC journal records, a supported positive must be complete on the
+first physical line. Otherwise the whole record is unclassified; a benign prefix
+does not make its continuations clean evidence.
+EDAC counters remain independent evidence; absent controllers on a VM still do not
+establish hardware memory integrity. Log representation does not authenticate its
+contents or establish complete history.

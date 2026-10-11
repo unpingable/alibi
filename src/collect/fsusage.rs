@@ -58,14 +58,14 @@ fn assemble(outputs: Vec<DfOutputs>, elapsed: Duration) -> Source<Vec<FsUsage>> 
     for output in outputs {
         let bytes = parse_dimension(
             output.bytes,
-            parse_df_bytes,
+            &output.device,
             &output.mountpoint,
             "byte usage",
             &mut failures,
         );
         let inodes = parse_dimension(
             output.inodes,
-            parse_df_inodes,
+            &output.device,
             &output.mountpoint,
             "inode usage",
             &mut failures,
@@ -100,13 +100,13 @@ fn assemble(outputs: Vec<DfOutputs>, elapsed: Duration) -> Source<Vec<FsUsage>> 
 
 fn parse_dimension(
     output: Result<String, String>,
-    parser: fn(&str) -> Result<(u64, u64), String>,
+    device: &str,
     mountpoint: &str,
     dimension: &str,
     failures: &mut Vec<(Status, String)>,
 ) -> Option<FsCapacity> {
     match output {
-        Ok(output) => match parser(&output) {
+        Ok(output) => match parse_df_for_mount(&output, device, mountpoint) {
             Ok((total, free)) => Some(FsCapacity { total, free }),
             Err(error) => {
                 failures.push((
@@ -124,6 +124,58 @@ fn parse_dimension(
             None
         }
     }
+}
+
+fn parse_df_for_mount(output: &str, device: &str, mountpoint: &str) -> Result<(u64, u64), String> {
+    if device.is_empty()
+        || mountpoint.is_empty()
+        || device.trim() != device
+        || mountpoint.trim() != mountpoint
+    {
+        return Err(
+            "df identity unsupported: empty or boundary-whitespace source/mountpoint name"
+                .to_string(),
+        );
+    }
+    let line = data_line(output)?;
+    let mismatch = || {
+        format!(
+            "df identity mismatch: expected source {:?} mounted on {:?}; observed row {:?}",
+            device, mountpoint, line
+        )
+    };
+    // Match the exact snapshot names around the four capacity columns. This
+    // supports literal spaces without guessing their token boundaries. A
+    // row outside that name framing (including G35's unmounted-path parent)
+    // cannot be attached merely because df exited successfully. GNU df padding
+    // is not authentication of arbitrary underlying labels or mount generations.
+    let middle = line
+        .strip_prefix(device)
+        .filter(|rest| rest.starts_with(char::is_whitespace))
+        .and_then(|rest| rest.strip_suffix(mountpoint))
+        .filter(|rest| rest.ends_with(char::is_whitespace))
+        .ok_or_else(mismatch)?;
+    let fields: Vec<&str> = middle.split_whitespace().collect();
+    if fields.len() != 4 {
+        return Err(format!(
+            "df identity/capacity columns are ambiguous: {:?}",
+            line
+        ));
+    }
+    let total = parse_u64(fields[0], line)?;
+    let _used = parse_u64(fields[1], line)?;
+    let free = parse_u64(fields[2], line)?;
+    if fields[3] != "-"
+        && fields[3]
+            .strip_suffix('%')
+            .is_none_or(|value| value.is_empty() || !value.bytes().all(|b| b.is_ascii_digit()))
+    {
+        return Err(format!("malformed df capacity percentage: {:?}", line));
+    }
+    if free > total {
+        return Err(format!("df available capacity exceeds total: {:?}", line));
+    }
+    Ok((total, free))
 }
 
 pub fn dedupe_filesystems(mounts: &[Mount]) -> Vec<(String, String)> {
@@ -152,6 +204,9 @@ pub fn parse_df_bytes(output: &str) -> Result<(u64, u64), String> {
     }
     let total = parse_u64(fields[1], line)?;
     let avail = parse_u64(fields[3], line)?;
+    if avail > total {
+        return Err(format!("df available capacity exceeds total: {:?}", line));
+    }
     Ok((total, avail))
 }
 
@@ -163,6 +218,9 @@ pub fn parse_df_inodes(output: &str) -> Result<(u64, u64), String> {
     }
     let total = parse_u64(fields[1], line)?;
     let free = parse_u64(fields[3], line)?;
+    if free > total {
+        return Err(format!("df free inodes exceed total: {:?}", line));
+    }
     Ok((total, free))
 }
 
@@ -174,9 +232,14 @@ fn data_line(output: &str) -> Result<&str, String> {
     if !header.starts_with("Filesystem") {
         return Err(format!("unexpected df header: {:?}", header));
     }
-    lines
-        .find(|l| !l.trim().is_empty())
-        .ok_or_else(|| "df produced no data line".to_string())
+    let mut rows = lines.filter(|line| !line.trim().is_empty());
+    let row = rows
+        .next()
+        .ok_or_else(|| "df produced no data line".to_string())?;
+    if rows.next().is_some() {
+        return Err("df produced multiple data rows for one requested mount".to_string());
+    }
+    Ok(row)
 }
 
 fn parse_u64(field: &str, line: &str) -> Result<u64, String> {
@@ -223,17 +286,140 @@ Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
         assert!(parse_df_inodes("garbage\n").is_err());
     }
 
-    fn bytes_output(total: u64, free: u64, mountpoint: &str) -> String {
+    #[test]
+    fn disappearing_mount_cannot_acquire_parent_capacity_as_complete() {
+        // G35: the requested ext4 loop mount is removed before real df runs;
+        // df successfully reports its now-containing parent tmpfs instead.
+        let source = assemble(
+            vec![outputs(
+                "/dev/loop0",
+                "/run/alibi-matrix/mnt",
+                Ok("Filesystem 1B-blocks Used Available Capacity Mounted on\nguest-root 329175040 23298048 305876992 8% /\n".to_string()),
+                Ok("Filesystem Inodes IUsed IFree IUse% Mounted on\nguest-root 57403 366 57037 1% /\n".to_string()),
+            )], Duration::ZERO,
+        );
+        assert!(!source.is_complete());
+        assert!(source.value.is_none());
+        assert!(source.failure_reason().contains("identity mismatch"));
+    }
+
+    #[test]
+    fn df_identity_requires_both_exact_names_and_one_unambiguous_row() {
+        let normal = bytes_output("/dev/loop0", 100, 70, "/mnt/data");
+        assert_eq!(
+            parse_df_for_mount(&normal, "/dev/loop0", "/mnt/data"),
+            Ok((100, 70))
+        );
+        for output in [
+            bytes_output("/dev/loop0", 100, 70, "/"),
+            bytes_output("/dev/alias", 100, 70, "/mnt/data"),
+            bytes_output("/dev/loop00", 100, 70, "/mnt/data"),
+            bytes_output("/dev/loop0", 100, 70, "/other/mnt/data"),
+            normal.replace(" 100 0 70 1% ", " 100 0 70 1% extra "),
+            format!("{}{}", normal, "/dev/loop0 100 0 70 1% /mnt/data\n"),
+        ] {
+            assert!(
+                parse_df_for_mount(&output, "/dev/loop0", "/mnt/data").is_err(),
+                "{output}"
+            );
+        }
+    }
+
+    #[test]
+    fn boundary_whitespace_names_cannot_be_confused_with_df_padding() {
+        let padded = "Filesystem 1B-blocks Used Available Capacity Mounted on\nvolume        100 0 70 1% /mnt/data\n";
+        assert!(parse_df_for_mount(padded, "volume ", "/mnt/data").is_err());
+        assert!(parse_df_for_mount(padded, " volume", "/mnt/data").is_err());
+        let trailing_path = bytes_output("volume", 100, 70, "/mnt/data ");
+        assert!(parse_df_for_mount(&trailing_path, "volume", "/mnt/data ").is_err());
+    }
+
+    #[test]
+    fn literal_spaces_in_requested_names_are_preserved() {
+        let output = bytes_output("volume with spaces", 100, 70, "/mnt/my data");
+        assert_eq!(
+            parse_df_for_mount(&output, "volume with spaces", "/mnt/my data"),
+            Ok((100, 70))
+        );
+    }
+
+    #[test]
+    fn dimension_local_identity_loss_retains_supported_positive() {
+        use crate::eval::{Evaluator, Verdict};
+        let source = assemble(
+            vec![outputs(
+                "/dev/loop0",
+                "/mnt/data",
+                Ok(bytes_output("/dev/loop0", 100, 2, "/mnt/data")),
+                Ok(inodes_output("guest-root", 100, 90, "/")),
+            )],
+            Duration::ZERO,
+        );
+        assert_eq!(source.completeness, Completeness::Partial);
+        assert_eq!(
+            source.get().unwrap()[0].bytes,
+            Some(FsCapacity {
+                total: 100,
+                free: 2
+            })
+        );
+        assert_eq!(source.get().unwrap()[0].inodes, None);
+        let mut facts = crate::eval::fixtures::clean_facts();
+        facts.fs_usage = source;
+        let finding = crate::eval::silent_killer::SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Degraded);
+        assert!(finding
+            .skipped
+            .iter()
+            .any(|s| s.contains("identity mismatch")));
+
+        facts.fs_usage = assemble(
+            vec![outputs(
+                "/dev/loop0",
+                "/mnt/data",
+                Ok(bytes_output("/dev/loop0", 100, 70, "/mnt/data")),
+                Ok(inodes_output("guest-root", 100, 90, "/")),
+            )],
+            Duration::ZERO,
+        );
+        assert_eq!(
+            crate::eval::silent_killer::SilentKiller
+                .evaluate(&facts)
+                .verdict,
+            Verdict::Unknown
+        );
+    }
+
+    #[test]
+    fn contradictory_capacity_is_not_evidence_of_free_space() {
+        let output =
+            "Filesystem 1B-blocks Used Available Capacity Mounted on\n/dev/test 100 0 101 0% /\n";
+        assert!(parse_df_bytes(output).is_err());
+        assert!(parse_df_inodes(output).is_err());
+        let source = assemble(
+            vec![outputs(
+                "/dev/test",
+                "/",
+                Ok(output.into()),
+                Ok(output.into()),
+            )],
+            Duration::ZERO,
+        );
+        assert_eq!(source.status, Status::Malformed);
+        assert!(source.value.is_none());
+    }
+
+    fn bytes_output(device: &str, total: u64, free: u64, mountpoint: &str) -> String {
         format!(
-            "Filesystem 1B-blocks Used Available Capacity Mounted on\n/dev/test {} 0 {} 1% {}\n",
-            total, free, mountpoint
+            "Filesystem 1B-blocks Used Available Capacity Mounted on\n{} {} 0 {} 1% {}\n",
+            device, total, free, mountpoint
         )
     }
 
-    fn inodes_output(total: u64, free: u64, mountpoint: &str) -> String {
+    fn inodes_output(device: &str, total: u64, free: u64, mountpoint: &str) -> String {
         format!(
-            "Filesystem Inodes IUsed IFree IUse% Mounted on\n/dev/test {} 0 {} 1% {}\n",
-            total, free, mountpoint
+            "Filesystem Inodes IUsed IFree IUse% Mounted on\n{} {} 0 {} 1% {}\n",
+            device, total, free, mountpoint
         )
     }
 
@@ -263,7 +449,7 @@ Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
                 vec![outputs(
                     "/dev/sda1",
                     "/",
-                    Ok(bytes_output(100, 3, "/")),
+                    Ok(bytes_output("/dev/sda1", 100, 3, "/")),
                     inode_failure,
                 )],
                 Duration::ZERO,
@@ -295,8 +481,8 @@ Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
                 outputs(
                     "/dev/sdb1",
                     "/later",
-                    Ok(bytes_output(200, 4, "/later")),
-                    Ok(inodes_output(300, 250, "/later")),
+                    Ok(bytes_output("/dev/sdb1", 200, 4, "/later")),
+                    Ok(inodes_output("/dev/sdb1", 300, 250, "/later")),
                 ),
             ],
             Duration::ZERO,

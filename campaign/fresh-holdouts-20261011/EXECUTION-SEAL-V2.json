@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "version": 2,
+  "time": "2026-10-11T20:31:57.657129+00:00",
+  "owner": "oracle_design",
+  "status": "EXACT_HELPER_PREREQUISITE_VERIFIED_PREFREEZE",
+  "original_private_seal": {
+    "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/SEAL.json",
+    "sha256": "20b0be9e4ee3c355ff805becbc7d20b5d43cdacc004f4ad69a7e6eead3090a39"
+  },
+  "prior_prerequisite_notice": {
+    "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/EXECUTION-PREREQUISITE-V2.json",
+    "sha256": "c5b8b790547cda07bca58622f8394d25a70d33ab2a60dd15c13c7072048e08e9"
+  },
+  "case_count": 10,
+  "oracle_and_scenario_changes": "NONE; original manifest/script/provenance hashes verified unchanged",
+  "helper_receipt": {
+    "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/tun-helper-v2-inputs-58f80a11-19cb-4d95-82b4-262702e4ddf0/INPUT.json",
+    "sha256": "51202e86d1b9f2da59e028415f8bdb30bb8783aa12d69db0271c000d994e6a8b"
+  },
+  "helper_source": {
+    "path": "/data/git/alibi-requalification-20261011/campaign/tun-drop-fixture-v2.c",
+    "sha256": "1c5a8fe2bd8926ec3df027ae69cd444c0f1e889a8f0c5d9cb5514ce2171c296f"
+  },
+  "original_helper_source": {
+    "path": "/data/git/alibi-requalification-20261011/campaign/tun-drop-fixture.c",
+    "sha256": "20c15c03d5e62a2f192ce26994e63284533635705c5632f6faf76db9c67bfe37"
+  },
+  "helper_binary": {
+    "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/tun-helper-v2-inputs-58f80a11-19cb-4d95-82b4-262702e4ddf0/tun-drop-fixture",
+    "sha256": "38414ef5c54701a433315bbc37cdb023261616f6ca0be572f422115cfd21b0e6"
+  },
+  "verification": {
+    "exact_source_transform": "One literal disjunction extended from G13/G14 to additionallyQ01..Q10; byte-identical remainder",
+    "source_original_and_binary_hashes": "PASS",
+    "original_private_input_hashes": "PASS",
+    "guest_or_host_execution_by_oracle": false,
+    "producer_reports_host_execution": false
+  },
+  "execution_requirement": "Builder supplies this exact successor helper binary at /bin/tun-drop-fixture. Existing runtime/API/protocol unchanged. Frozen Alibi executable remains separately identified at future explicitfreeze.",
+  "disclosure": "Root/lab have infrastructure IDs and exact helper hashes only; no private case/oracle contents disclosed. Product freeze still pending.",
+  "formalization": "Finite admitted-ID predicate extension preserves root UID, exact disposable hostname, nonempty alibi_run and emit/hold caps by exact source equality outside one line. This establishes bounded environment admission syntax, not actual kernel induction; independent guest observations remain required.",
+  "custody": "Root exact source/binary replay dependency through final acceptance; review2026-10-18 or campaign closeout. Original inputs and prerequisite-gap record preserved; no new executions/builds by oracle."
+}

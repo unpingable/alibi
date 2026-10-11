@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "owner": "oracle_design",
+  "created_at": "2026-10-11T18:40:07.732653+00:00",
+  "status": "PREPARED_UNEXECUTED_NOT_DISCLOSED",
+  "original_manifest_sha256": "89f95329bc50c3cc3d52064a65b94101ae5801951f829c4a1aad914696aa532e",
+  "script_sha256": "2729ce083f7e428081626ebae8e75b2a88ef0e7000a1b04d44862e3685279d3f",
+  "provenance_sha256": "75ec4b89d9cacf9d1162bfa60e2b411643ae26f3bb58ba2acd56ab03459d19c4",
+  "case_count": 6,
+  "candidate_freeze": "PENDING_ROOT_EXPLICIT_SOURCE_AND_EXECUTABLE_IDENTITIES",
+  "oracle_changes": "None. Script concretizes sealed cases. H03 requires independently observed drop and interval alignment; absence isF7. H04 uses preallowed substitution with independent source provenance and version limitation.",
+  "execution_contract": "Fresh guest perH01..H06, isolated NIC1,512MiB, same approved builder/tools/capture helper; root durable launcher after freeze. No guest launches by this lane.",
+  "authority": "Guest-only effects, no hostblocks/sharedmounts/networkbackend. Retire guest substrate with guest; hold minimal script/spec/results through independent acceptance.",
+  "retirement": "Review at candidate freeze and final campaign closeout; after reveal incorporate exact replay spec into final evidence."
+}

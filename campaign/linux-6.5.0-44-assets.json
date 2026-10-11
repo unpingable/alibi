@@ -1,0 +1,511 @@
+{
+  "kernel_release": "6.5.0-44-generic",
+  "source": "read-only installed module metadata; no host module inserted",
+  "built_in": [
+    "loop",
+    "virtio_blk",
+    "virtio_net",
+    "ext4",
+    "jbd2",
+    "mbcache",
+    "crc16",
+    "dm_mod"
+  ],
+  "module_dependency_order": {
+    "dummy": [
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/drivers/net/dummy.ko.zst",
+        "bytes": 4393,
+        "sha256": "b703b57b4a99971e5a4f39f34670585360a4c895a00b0590dfcf2b4f43075f4c",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": [
+          "numdummies=0"
+        ]
+      }
+    ],
+    "veth": [
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/drivers/net/veth.ko.zst",
+        "bytes": 19405,
+        "sha256": "b0b84efe0d12fb48330128b742dd1a5533a43e216372a5b5688aa71b48e6ca68",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "nf_conntrack": [
+      {
+        "builtin": "crc32c_intel"
+      },
+      {
+        "builtin": "crc32c_generic"
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/lib/libcrc32c.ko.zst",
+        "bytes": 2563,
+        "sha256": "1e17df16680399a16461087b12ac842c540ce28151b65d0b3e4ebc3157ee88bc",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/ipv4/netfilter/nf_defrag_ipv4.ko.zst",
+        "bytes": 3431,
+        "sha256": "7f7f35c851dad1e58b1fb36845ff588fb616f72ff358f7565ce9c083250bcb10",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/ipv6/netfilter/nf_defrag_ipv6.ko.zst",
+        "bytes": 10332,
+        "sha256": "2dbd36f6ed51a781262a86da87c54c7fd09618e10d02bdaa67f60b0b0a83abc8",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_conntrack.ko.zst",
+        "bytes": 81830,
+        "sha256": "06fe4e7f0010120d549141853904da8c025b94fc25c1883e7a601be6fd0f6b10",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "overlay": [
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/fs/overlayfs/overlay.ko.zst",
+        "bytes": 89655,
+        "sha256": "1d674f2fdc7f565ccdf72e3975703fb4cc24166f99fec54c070b26778d017306",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "xfs": [
+      {
+        "builtin": "crc32c_intel"
+      },
+      {
+        "builtin": "crc32c_generic"
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/lib/libcrc32c.ko.zst",
+        "bytes": 2563,
+        "sha256": "1e17df16680399a16461087b12ac842c540ce28151b65d0b3e4ebc3157ee88bc",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/fs/xfs/xfs.ko.zst",
+        "bytes": 815170,
+        "sha256": "e6c715d9ce56199734d80c86d160c9db01fd8c33a523a2ad299152517481e4b9",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "dm_flakey": [
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/drivers/md/dm-flakey.ko.zst",
+        "bytes": 9422,
+        "sha256": "1f489f6dde9704afcd9aba5ecaf7c3387c1d8d3583024e3abb6f13d6b4929c60",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "dm_delay": [
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/drivers/md/dm-delay.ko.zst",
+        "bytes": 5863,
+        "sha256": "a2d5e92b58cd0ffb0cb8ad0d4b62f782b948a51f2de663c9e4cd1ecaa200c327",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "nf_tables": [
+      {
+        "builtin": "crc32c_intel"
+      },
+      {
+        "builtin": "crc32c_generic"
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/lib/libcrc32c.ko.zst",
+        "bytes": 2563,
+        "sha256": "1e17df16680399a16461087b12ac842c540ce28151b65d0b3e4ebc3157ee88bc",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nfnetlink.ko.zst",
+        "bytes": 10573,
+        "sha256": "dab9c68a89ff40b5d91ce8617e446dceb8455dfb0141c4af06b9898152b16d35",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_tables.ko.zst",
+        "bytes": 170894,
+        "sha256": "7db6ea5f7958abbba5b484f6db3b44e2c2553ae51f70ea5011e5d509db01d7a3",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "nft_ct": [
+      {
+        "builtin": "crc32c_intel"
+      },
+      {
+        "builtin": "crc32c_generic"
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/lib/libcrc32c.ko.zst",
+        "bytes": 2563,
+        "sha256": "1e17df16680399a16461087b12ac842c540ce28151b65d0b3e4ebc3157ee88bc",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/ipv4/netfilter/nf_defrag_ipv4.ko.zst",
+        "bytes": 3431,
+        "sha256": "7f7f35c851dad1e58b1fb36845ff588fb616f72ff358f7565ce9c083250bcb10",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/ipv6/netfilter/nf_defrag_ipv6.ko.zst",
+        "bytes": 10332,
+        "sha256": "2dbd36f6ed51a781262a86da87c54c7fd09618e10d02bdaa67f60b0b0a83abc8",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_conntrack.ko.zst",
+        "bytes": 81830,
+        "sha256": "06fe4e7f0010120d549141853904da8c025b94fc25c1883e7a601be6fd0f6b10",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nfnetlink.ko.zst",
+        "bytes": 10573,
+        "sha256": "dab9c68a89ff40b5d91ce8617e446dceb8455dfb0141c4af06b9898152b16d35",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_tables.ko.zst",
+        "bytes": 170894,
+        "sha256": "7db6ea5f7958abbba5b484f6db3b44e2c2553ae51f70ea5011e5d509db01d7a3",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nft_ct.ko.zst",
+        "bytes": 16042,
+        "sha256": "83c8989e8b77545ddb591d1f84aa29058a874bd54b414793071611fc77aba3e2",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "nft_limit": [
+      {
+        "builtin": "crc32c_intel"
+      },
+      {
+        "builtin": "crc32c_generic"
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/lib/libcrc32c.ko.zst",
+        "bytes": 2563,
+        "sha256": "1e17df16680399a16461087b12ac842c540ce28151b65d0b3e4ebc3157ee88bc",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nfnetlink.ko.zst",
+        "bytes": 10573,
+        "sha256": "dab9c68a89ff40b5d91ce8617e446dceb8455dfb0141c4af06b9898152b16d35",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_tables.ko.zst",
+        "bytes": 170894,
+        "sha256": "7db6ea5f7958abbba5b484f6db3b44e2c2553ae51f70ea5011e5d509db01d7a3",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nft_limit.ko.zst",
+        "bytes": 7672,
+        "sha256": "b21023ab6701f1d381a34fac7c477789afd632495756c6851030b3b9fbac0cf2",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "nft_chain_nat": [
+      {
+        "builtin": "crc32c_intel"
+      },
+      {
+        "builtin": "crc32c_generic"
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/lib/libcrc32c.ko.zst",
+        "bytes": 2563,
+        "sha256": "1e17df16680399a16461087b12ac842c540ce28151b65d0b3e4ebc3157ee88bc",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/ipv4/netfilter/nf_defrag_ipv4.ko.zst",
+        "bytes": 3431,
+        "sha256": "7f7f35c851dad1e58b1fb36845ff588fb616f72ff358f7565ce9c083250bcb10",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/ipv6/netfilter/nf_defrag_ipv6.ko.zst",
+        "bytes": 10332,
+        "sha256": "2dbd36f6ed51a781262a86da87c54c7fd09618e10d02bdaa67f60b0b0a83abc8",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_conntrack.ko.zst",
+        "bytes": 81830,
+        "sha256": "06fe4e7f0010120d549141853904da8c025b94fc25c1883e7a601be6fd0f6b10",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_nat.ko.zst",
+        "bytes": 26146,
+        "sha256": "a49392c4b530d57dd38754d9a78b9f0d691c9de5099e841fa01c3b6552aa3476",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nfnetlink.ko.zst",
+        "bytes": 10573,
+        "sha256": "dab9c68a89ff40b5d91ce8617e446dceb8455dfb0141c4af06b9898152b16d35",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_tables.ko.zst",
+        "bytes": 170894,
+        "sha256": "7db6ea5f7958abbba5b484f6db3b44e2c2553ae51f70ea5011e5d509db01d7a3",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nft_chain_nat.ko.zst",
+        "bytes": 3467,
+        "sha256": "84a94fbcb4a8ec19e40f99c2e19d11889c71efc4193e4594da33d06852dfce58",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ],
+    "nf_conntrack_netlink": [
+      {
+        "builtin": "crc32c_intel"
+      },
+      {
+        "builtin": "crc32c_generic"
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/lib/libcrc32c.ko.zst",
+        "bytes": 2563,
+        "sha256": "1e17df16680399a16461087b12ac842c540ce28151b65d0b3e4ebc3157ee88bc",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/ipv4/netfilter/nf_defrag_ipv4.ko.zst",
+        "bytes": 3431,
+        "sha256": "7f7f35c851dad1e58b1fb36845ff588fb616f72ff358f7565ce9c083250bcb10",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/ipv6/netfilter/nf_defrag_ipv6.ko.zst",
+        "bytes": 10332,
+        "sha256": "2dbd36f6ed51a781262a86da87c54c7fd09618e10d02bdaa67f60b0b0a83abc8",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_conntrack.ko.zst",
+        "bytes": 81830,
+        "sha256": "06fe4e7f0010120d549141853904da8c025b94fc25c1883e7a601be6fd0f6b10",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nfnetlink.ko.zst",
+        "bytes": 10573,
+        "sha256": "dab9c68a89ff40b5d91ce8617e446dceb8455dfb0141c4af06b9898152b16d35",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      },
+      {
+        "path": "/lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_conntrack_netlink.ko.zst",
+        "bytes": 29170,
+        "sha256": "8eb9a754bc915531b8d9c773e3180710ef3b219ad4fba68d629414900c7eb03d",
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions",
+        "suggested_arguments": []
+      }
+    ]
+  },
+  "requested_tools": [
+    "/usr/sbin/mke2fs",
+    "/usr/sbin/losetup",
+    "/usr/bin/stat",
+    "/usr/bin/timeout",
+    "/usr/bin/setpriv",
+    "/usr/bin/unshare",
+    "/usr/sbin/tc",
+    "/usr/sbin/nft",
+    "/usr/sbin/xfs_io",
+    "/usr/sbin/mkfs.xfs",
+    "/usr/sbin/dmsetup",
+    "/usr/bin/bash"
+  ],
+  "notes": [
+    "Optional module availability is not qualification of that feature",
+    "Builder decompresses explicitly supplied modules and checks vermagic",
+    "Supply dependency files in listed order and insmod from /modules inside guest",
+    "mke2fs config copied when mke2fs tool supplied",
+    "tc dynamic action/qdisc plugins not inventoried or copied; keep optional cases conditional"
+  ],
+  "integrated_not_separate_modules": [
+    "nft_counter (no separate installed module; basic counter expression within nf_tables)",
+    "dm_error (error target within builtin dm_mod)"
+  ],
+  "historical_host_inventory_status": "NOT_USABLE_WITH_DOWNLOADED_KERNEL: original guest evidence shows symbol-version disagreements despite identical vermagic; retain original archive custody only",
+  "matching_module_custody": {
+    "receipt": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/TERMINAL.json",
+    "sha256": "f6dee633dd0b92689e3982e0247ccabf0311060270958d10841f61d49ca25be3",
+    "modules": {
+      "dummy": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/dummy.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/drivers/net/dummy.ko",
+        "sha256": "bfc17098f81e6c60506bc4aa4d95e2f20c98d49decdfcd6e8c8b3cc27e3088c2",
+        "bytes": 19257,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "veth": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/veth.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/drivers/net/veth.ko",
+        "sha256": "a51bbbc6fc640750b7628e92bbf25353aec93b8144edabd1cc904db1d51cd93f",
+        "bytes": 77769,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "overlay": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/overlay.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/fs/overlayfs/overlay.ko",
+        "sha256": "5fe05c3e3e21420f335c61b387fb446feb39a12653265d605e58fa64f6d0a3c1",
+        "bytes": 429785,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "xfs": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/xfs.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/fs/xfs/xfs.ko",
+        "sha256": "e3af80cc31007c6420893baf8fc9ac9c3abdbca33020d2992059ab2419a9e888",
+        "bytes": 4653169,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [
+          "libcrc32c"
+        ],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "libcrc32c": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/libcrc32c.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/lib/libcrc32c.ko",
+        "sha256": "2a25a4138c1c8701aec8e6571a624fafd2ed23385da570681f2cebc32ab8c6e9",
+        "bytes": 9065,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "nf_defrag_ipv4": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/nf_defrag_ipv4.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/net/ipv4/netfilter/nf_defrag_ipv4.ko",
+        "sha256": "338d092ca3d2e7cf9d3e8b6b8df8e6df6882a974fd319187f8dd0e774711071d",
+        "bytes": 13289,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "nf_defrag_ipv6": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/nf_defrag_ipv6.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/net/ipv6/netfilter/nf_defrag_ipv6.ko",
+        "sha256": "3bac07fb0cb9814a74f7dc1a8e3a10d959e9a676d586cb4f9ba13f982043741f",
+        "bytes": 41329,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "nf_conntrack": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/nf_conntrack.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_conntrack.ko",
+        "sha256": "2349875b4bc2ef1083288b118288ac4b7a25f793454f20cbe3262c155c77a74a",
+        "bytes": 390593,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [
+          "nf_defrag_ipv4",
+          "nf_defrag_ipv6",
+          "libcrc32c"
+        ],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "nf_tables": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/nf_tables.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/net/netfilter/nf_tables.ko",
+        "sha256": "39f4665af6273c73d78bdd9ff5890c874940f63a5bb2d5fcede6e406b1bd496a",
+        "bytes": 735265,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [
+          "nfnetlink",
+          "libcrc32c"
+        ],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "nfnetlink": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/nfnetlink.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/net/netfilter/nfnetlink.ko",
+        "sha256": "444fdeab01fe63a58f794595cffeaf482154b8680915375adfc2c4bc232c4c00",
+        "bytes": 44961,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      },
+      "nft_ct": {
+        "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/matching-modules-51279060-4abd-4eaf-8f50-3ac57507374a/modules/nft_ct.ko",
+        "archive_member": "./lib/modules/6.5.0-44-generic/kernel/net/netfilter/nft_ct.ko",
+        "sha256": "10db951c400e6030140a68facf85cf4bf5eecd89131620f4eb6ce2b70b157162",
+        "bytes": 57153,
+        "package": "linux-modules-6.5.0-44-generic",
+        "package_sha256": "92dc300885d624f758dd1ea003c2958e54b2d2fd01d42fd80f6a1a1a7e681d53",
+        "depends": [
+          "nf_conntrack",
+          "nf_tables"
+        ],
+        "vermagic": "6.5.0-44-generic SMP preempt mod_unload modversions"
+      }
+    }
+  }
+}

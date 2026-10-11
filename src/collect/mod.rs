@@ -10,7 +10,11 @@ pub use kernellog::KernelLog;
 pub use mounts::Mount;
 pub use net::{Conntrack, Iface, NetFacts, RouteFacts};
 
-use std::io::Read;
+use std::io::{ErrorKind, Read};
+use std::os::fd::OwnedFd;
+use std::os::unix::net::UnixStream;
+use std::os::unix::process::CommandExt;
+use std::process::Child;
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -326,81 +330,310 @@ fn parse_btime(stat: &str) -> Option<u64> {
         .and_then(|v| v.trim().parse().ok())
 }
 
+// Limits apply to each stream. Hitting a limit is incomplete acquisition, not
+// permission to interpret the retained prefix as complete evidence.
+const COMMAND_OUTPUT_LIMIT: usize = 8 * 1024 * 1024;
+const COMMAND_CLEANUP_ALLOWANCE: Duration = Duration::from_millis(100);
+
 pub fn run_command(program: &str, args: &[&str], timeout: Duration) -> Result<String, String> {
+    run_command_limited(program, args, timeout, COMMAND_OUTPUT_LIMIT)
+}
+
+fn run_command_limited(
+    program: &str,
+    args: &[&str],
+    timeout: Duration,
+    limit: usize,
+) -> Result<String, String> {
+    ensure_waitable_children().map_err(|error| format!("{}: {}", program, error))?;
     let start = Instant::now();
+    let (mut stdout, child_stdout) =
+        UnixStream::pair().map_err(|e| format!("{}: stdout channel: {}", program, e))?;
+    let (mut stderr, child_stderr) =
+        UnixStream::pair().map_err(|e| format!("{}: stderr channel: {}", program, e))?;
+    stdout.set_nonblocking(true).map_err(|e| e.to_string())?;
+    stderr.set_nonblocking(true).map_err(|e| e.to_string())?;
     let mut child = Command::new(program)
         .args(args)
         .env("LC_ALL", "C")
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(Stdio::from(OwnedFd::from(child_stdout)))
+        .stderr(Stdio::from(OwnedFd::from(child_stderr)))
+        .process_group(0)
         .spawn()
         .map_err(|e| format!("{}: {}", program, e))?;
-
-    let mut out_pipe = child.stdout.take().expect("stdout piped");
-    let mut err_pipe = child.stderr.take().expect("stderr piped");
-    let out_reader = thread::spawn(move || {
-        let mut buf = Vec::new();
-        out_pipe.read_to_end(&mut buf).map(|_| buf)
-    });
-    let err_reader = thread::spawn(move || {
-        let mut buf = Vec::new();
-        err_pipe.read_to_end(&mut buf).map(|_| buf)
-    });
-
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let out = out_reader
-                    .join()
-                    .ok()
-                    .and_then(|r| r.ok())
-                    .unwrap_or_default();
-                let err = err_reader
-                    .join()
-                    .ok()
-                    .and_then(|r| r.ok())
-                    .unwrap_or_default();
-                if status.success() {
-                    return Ok(String::from_utf8_lossy(&out).into_owned());
+    let mut out = Vec::new();
+    let mut err = Vec::new();
+    let mut out_eof = false;
+    let mut err_eof = false;
+    let failure = loop {
+        if start.elapsed() >= timeout {
+            break format!(
+                "timed out after {}ms (including output drain)",
+                timeout.as_millis()
+            );
+        }
+        // One bounded read from each stream per turn prevents a busy writer
+        // from starving the other stream or the deadline check.
+        let mut progress = false;
+        for (stream, buffer, eof, label) in [
+            (&mut stdout, &mut out, &mut out_eof, "stdout"),
+            (&mut stderr, &mut err, &mut err_eof, "stderr"),
+        ] {
+            if !*eof {
+                match drain_chunk(stream, buffer, eof, limit) {
+                    Ok(read_progress) => progress |= read_progress,
+                    Err(e) => {
+                        let cleanup = terminate_command(&mut child);
+                        return Err(format!("{}: {}: {}{}", program, label, e, cleanup));
+                    }
                 }
-                let err = String::from_utf8_lossy(&err);
-                let trimmed = err.trim();
-                let stripped = trimmed
-                    .strip_prefix(program)
-                    .and_then(|r| r.strip_prefix(':'));
-                let detail: String = stripped
-                    .unwrap_or(trimmed)
-                    .trim_start()
-                    .chars()
-                    .take(200)
-                    .collect();
-                if detail.is_empty() {
-                    return Err(format!("{}: exited with {}", program, status));
-                }
-                return Err(format!("{}: {}", program, detail));
             }
-            Ok(None) => {
-                if start.elapsed() >= timeout {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    let _ = out_reader.join();
-                    let _ = err_reader.join();
+        }
+        if start.elapsed() >= timeout {
+            continue;
+        }
+        // Do not reap the leader while descendants could retain output. Its
+        // unreaped identity pins the process-group ID for failure cleanup.
+        if out_eof && err_eof {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    if start.elapsed() >= timeout {
+                        return Err(format!(
+                            "{}: timed out after {}ms",
+                            program,
+                            timeout.as_millis()
+                        ));
+                    }
+                    if status.success() {
+                        return String::from_utf8(out)
+                            .map_err(|_| format!("{}: stdout is not valid UTF-8", program));
+                    }
+                    let err = String::from_utf8_lossy(&err);
+                    let trimmed = err.trim();
+                    let detail: String = trimmed
+                        .strip_prefix(program)
+                        .and_then(|r| r.strip_prefix(':'))
+                        .unwrap_or(trimmed)
+                        .trim_start()
+                        .chars()
+                        .take(200)
+                        .collect();
+                    return Err(if detail.is_empty() {
+                        format!("{}: exited with {}", program, status)
+                    } else {
+                        format!("{}: {}", program, detail)
+                    });
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    // ECHILD (or any unexpected wait failure) invalidates our
+                    // leader-ownership evidence. Never signal a numeric group
+                    // after losing that evidence, even as attempted cleanup.
                     return Err(format!(
-                        "{}: timed out after {}s",
-                        program,
-                        timeout.as_secs()
+                        "{}: wait failed: {}; cleanup not signaled: child ownership unconfirmed",
+                        program, e
                     ));
                 }
-                thread::sleep(Duration::from_millis(25));
             }
-            Err(e) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = out_reader.join();
-                let _ = err_reader.join();
-                return Err(format!("{}: wait failed: {}", program, e));
+        }
+        if !progress {
+            thread::sleep(Duration::from_millis(1).min(timeout.saturating_sub(start.elapsed())));
+        }
+    };
+    let cleanup = terminate_command(&mut child);
+    Err(format!("{}: {}{}", program, failure, cleanup))
+}
+
+fn drain_chunk(
+    stream: &mut UnixStream,
+    buffer: &mut Vec<u8>,
+    eof: &mut bool,
+    limit: usize,
+) -> Result<bool, String> {
+    let mut chunk = [0u8; 8192];
+    match stream.read(&mut chunk) {
+        Ok(0) => {
+            *eof = true;
+            Ok(true)
+        }
+        Ok(n) if n <= limit.saturating_sub(buffer.len()) => {
+            buffer.extend_from_slice(&chunk[..n]);
+            Ok(true)
+        }
+        Ok(_) => Err(format!(
+            "output exceeds {} byte limit; acquisition incomplete",
+            limit
+        )),
+        Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::Interrupted) => Ok(false),
+        Err(e) => Err(format!("read failed: {}", e)),
+    }
+}
+
+// Public library callers must own child reaping and keep SIGCHLD disposition
+// stable throughout collection. Preflight cannot exclude a concurrent waiter or
+// signal mutation in another thread. The standalone CLI installs neither.
+#[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
+#[repr(C)]
+struct SigchldAction {
+    handler: usize,
+    mask: [u64; 16],
+    flags: i32,
+    restorer: usize,
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
+unsafe extern "C" {
+    fn sigaction(signal: i32, action: *const SigchldAction, old: *mut SigchldAction) -> i32;
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
+fn ensure_waitable_children() -> Result<(), String> {
+    // ABI is qualified against Linux x86_64 glibc's signal.h, not guessed for
+    // other targets: handler, 1024-bit mask, int flags, aligned restorer.
+    let mut action = SigchldAction {
+        handler: 0,
+        mask: [0; 16],
+        flags: 0,
+        restorer: 0,
+    };
+    let result = unsafe { sigaction(17, std::ptr::null(), &mut action) };
+    if result != 0 {
+        return Err(format!(
+            "cannot inspect SIGCHLD disposition: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    if action.handler != 0 || action.flags & 2 != 0 {
+        return Err("unsupported SIGCHLD disposition: default handler without SA_NOCLDWAIT required; command not spawned".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(not(all(target_os = "linux", target_arch = "x86_64", target_env = "gnu")))]
+fn ensure_waitable_children() -> Result<(), String> {
+    Err(
+        "command collection signal ABI is qualified only for Linux x86_64 GNU; command not spawned"
+            .to_string(),
+    )
+}
+
+fn terminate_command(child: &mut Child) -> String {
+    // Linux/POSIX kill targets a process group for a negative pid. The child
+    // was created in its own group and has not been reaped on these paths.
+    // No ambient process group or unrelated host process is signaled.
+    unsafe extern "C" {
+        fn kill(pid: i32, signal: i32) -> i32;
+    }
+    let signal_result = unsafe { kill(-(child.id() as i32), 9) };
+    let signal_error = (signal_result != 0).then(std::io::Error::last_os_error);
+    let cleanup_start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                return signal_error.map_or_else(String::new, |e| format!("; group signal: {}", e))
             }
+            Ok(None) if cleanup_start.elapsed() < COMMAND_CLEANUP_ALLOWANCE => {
+                thread::sleep(Duration::from_millis(1));
+            }
+            Ok(None) => return "; cleanup incomplete: child not reaped within 100ms".to_string(),
+            Err(e) => return format!("; cleanup incomplete: {}", e),
+        }
+    }
+}
+
+#[cfg(all(test, target_os = "linux", target_arch = "x86_64", target_env = "gnu"))]
+mod command_tests {
+    use super::*;
+
+    #[test]
+    fn nonwaitable_sigchld_dispositions_refuse_before_spawn() {
+        const MODE: &str = "ALIBI_TEST_SIGCHLD_MODE";
+        if let Ok(mode) = std::env::var(MODE) {
+            // This branch runs only in a fresh single-test subprocess, never
+            // in the parallel test runner or an arbitrary library caller.
+            let action = SigchldAction {
+                handler: if mode == "ignored" { 1 } else { 0 },
+                mask: [0; 16],
+                flags: if mode == "no-child-wait" { 2 } else { 0 },
+                restorer: 0,
+            };
+            assert_eq!(unsafe { sigaction(17, &action, std::ptr::null_mut()) }, 0);
+            let error = run_command("/alibi-fixture-must-not-exist", &[], Duration::from_secs(1))
+                .unwrap_err();
+            assert!(error.contains("unsupported SIGCHLD disposition"), "{error}");
+            assert!(error.contains("command not spawned"));
+            return;
+        }
+        for mode in ["ignored", "no-child-wait"] {
+            let output = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "collect::command_tests::nonwaitable_sigchld_dispositions_refuse_before_spawn",
+                ])
+                .env(MODE, mode)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{mode}: {} {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+    }
+
+    #[test]
+    fn inherited_streams_are_inside_acquisition_deadline() {
+        for script in [
+            "sleep 2 2>/dev/null & printf ok; exit 0",
+            "sleep 2 >/dev/null & printf ok; exit 0",
+        ] {
+            let start = Instant::now();
+            let result = run_command("/bin/sh", &["-c", script], Duration::from_millis(50));
+            assert!(result.unwrap_err().contains("timed out"));
+            assert!(start.elapsed() < Duration::from_secs(1));
+        }
+    }
+
+    #[test]
+    fn active_child_timeout_is_bounded() {
+        let start = Instant::now();
+        assert!(
+            run_command("/bin/sh", &["-c", "sleep 2"], Duration::from_millis(50))
+                .unwrap_err()
+                .contains("timed out")
+        );
+        assert!(start.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn complete_command_success_and_nonzero_exit_are_distinct() {
+        assert_eq!(
+            run_command("/bin/sh", &["-c", "printf ok"], Duration::from_secs(1)),
+            Ok("ok".to_string())
+        );
+        assert!(run_command(
+            "/bin/sh",
+            &["-c", "printf ok; exit 1"],
+            Duration::from_secs(1)
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn invalid_utf8_and_output_cap_never_succeed() {
+        assert!(
+            run_command("/bin/sh", &["-c", "printf '\\377'"], Duration::from_secs(1))
+                .unwrap_err()
+                .contains("UTF-8")
+        );
+        for script in ["printf 123456789", "printf 123456789 >&2"] {
+            assert!(
+                run_command_limited("/bin/sh", &["-c", script], Duration::from_secs(1), 8)
+                    .unwrap_err()
+                    .contains("byte limit")
+            );
         }
     }
 }

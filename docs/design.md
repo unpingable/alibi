@@ -104,12 +104,16 @@ collector → normalized facts (+ per-source status) → failure-class evaluator
   Collectors never interpret. Dependencies are explicit: for example, filesystem
   usage collection consumes the mount set rather than rediscovering it.
 - **Evaluation** (`eval`): pure functions `facts → Finding`. No I/O, no command
-  parsing. Fully fixture-testable. A shared, explicit substring-pattern table tags
-  kernel-log lines to failure classes; no regex engine. Patterns carry per-pattern
-  exclusion substrings so benign banners do not match (e.g. the `EDAC` needle
-  excludes `Ver:`/`detected (`/version lines — a loaded EDAC core is not a memory
-  error). The table is curated and versioned in one place; that is the mechanism,
-  not a bug.
+  parsing. Fully fixture-testable. A shared, explicit pattern table tags
+  kernel-log lines to failure classes; no regex engine. EDAC-origin messages are
+  classified before generic signatures: counted positive CE/UE reports establish
+  memory-error indications, known informational registration/version/detection
+  forms do not, and unsupported EDAC forms prevent memrot exoneration. Controller
+  labels are not searched for incidental error signatures. Multiline EDAC
+  records are unclassified unless their first physical line independently
+  establishes a supported positive; continuations cannot supply missing grammar
+  fields or silently inherit an informational classification. Other curated
+  signatures retain their existing substring matching.
 - **Presentation** (`receipt`): human renderer, zero-dependency JSON emitter.
   Verdict logic never contains parsing; parsing never contains verdicts.
 
@@ -117,16 +121,38 @@ The **interrogation envelope** is recorded on every receipt: each planned source
 name, status, completeness, method, elapsed time, monotonic completion offset, and
 bounded sample window where applicable (plus boot time from `/proc/stat` btime).
 Each finding separately records its source names and their required or supporting
-roles. Alibi never says "this machine is healthy"; it says "within this explicitly
+roles. Default human output and JSON both include this envelope and any source
+limitations. Human `--verbose` adds expanded evidence and indications; it is not
+required to discover missing required evidence. Alibi never says "this machine is healthy"; it says "within this explicitly
 described envelope, no evidence supports these named accusations."
 
-Kernel-log acquisition: try `dmesg`, fall back to
-`journalctl -k -b --no-pager --quiet`,
-else `unavailable` (e.g. `kernel.dmesg_restrict=1` and no journal access — common
-for unprivileged users; run with sufficient privilege for a full envelope). Every
-external command runs under a hard timeout. The whole interrogation stays
-interactive-scale; the two-second network delta window is paid only when
-`network-choke-point` is selected.
+Kernel-log acquisition requests `dmesg --raw --force-prefix`,
+then `journalctl -k -b --no-pager --quiet -o short-monotonic --no-hostname --all`.
+Unsupported options or unavailable commands are collection failures. Successful
+command stdout must be valid UTF-8. Log records must have the selected numeric
+priority/timestamp framing (dmesg) or monotonic timestamp/identifier
+(journal), with a complete final newline. Malformed neighboring records make a
+source partial while valid records remain available for positive evidence.
+These checks validate representation, not provenance, freshness, or complete
+since-boot retention; a substituted command can imitate valid framing.
+
+Each external command has an acquisition deadline covering child exit and both
+output streams, with an 8 MiB limit per stream. Timeout, read, encoding and cap
+failures discard command output and cannot become complete evidence. The
+collector uses nonblocking streams without reader threads. Failure signals only
+the dedicated child process group while its leader identity is unreaped, then
+allows at most 100 ms of userspace cleanup polling. Before spawning, a read-only
+SIGCHLD disposition check requires the default handler without SA_NOCLDWAIT;
+ignored/custom handlers or auto-reaping flags refuse collection. This ABI check
+is qualified only for Linux x86_64 GNU targets; other targets refuse command
+collection rather than guessing the signal layout. The check changes no signal
+handler. Any wait error invalidates ownership evidence and skips numeric group
+signaling. Library callers must not concurrently reap collector children or
+change SIGCHLD disposition; preflight cannot establish that invariant for an
+arbitrary concurrent caller. Failure to reap is reported;
+this is not proof that every descendant retired. Scheduling, spawn, and kernel
+uninterruptible waits prevent a universal wall-clock guarantee. The two-second
+network delta window is paid only when `network-choke-point` is selected.
 
 ## 6. Failure classes (V0)
 
@@ -167,6 +193,16 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
   distinct). Whole-table `df` is deliberately not used: one inaccessible unrelated
   mount (e.g. a permission-restricted FUSE mount) must not destroy all space
   evidence for the host.
+- Filesystem usage requires each df row's textual source and mountpoint to match
+  the pair requested from the mount snapshot. A mismatch, extra row or ambiguous
+  capacity columns makes that dimension inadequate while preserving other valid
+  dimensions. This is name correspondence, not mounted-object or generation
+  continuity: same-name replacement can remain undetected, and aliases/bind-view
+  reporting differences conservatively yield UNKNOWN. Literal spaces are matched
+  around the capacity columns without silently normalizing names. Empty or
+  boundary-whitespace expected names are unsupported. GNU df's source padding
+  can still hide trailing whitespace in an actual label, so correspondence is
+  to the admitted printed representation, not arbitrary kernel-label identity.
 - Limitation: Alibi cannot know operator intent. A deliberately read-only root is
   reported with wording that says so; evidence is shown, the operator judges.
   ZFS and network filesystems are out of V0's mount model.
@@ -205,6 +241,17 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
   device (`*`, e.g. `blackhole default`) are not default routes for this purpose.
 - Counters are cumulative since boot/driver load, so **absolute values never
   verdict**; only the bounded delta does. The 2 s window is part of the envelope.
+- Counter pairs are read through the same retained sysfs descriptors. All opens
+  are relative to one held interface directory; a failed descriptor is never
+  replaced by reopening its name. Reads seek to zero to obtain fresh kernel
+  values. A removed/recreated device cannot provide the original descriptor's
+  second value, even when name, MAC or ifindex are reused. Inadequate required
+  pairs prevent CLEAR; independently comparable positive evidence is retained.
+- This is same-object endpoint sampling under genuine sysfs semantics, not
+  continuous namespace/topology observation. A device can leave and return to a
+  namespace while retaining its object. Transient interfaces, hidden driver
+  counter resets and independently substituted proc/sys views are not covered.
+  No atomic snapshot or continuous network-path availability is asserted.
 - Down/unused interfaces are normal and are evidence, not accusations.
 - `NOT_APPLICABLE` when no non-loopback interface exists.
 

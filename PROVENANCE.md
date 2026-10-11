@@ -56,3 +56,39 @@ may vary across sessions and are not exhaustively reconstructed here.
 ---
 
 This document reflects the project state as of 2026-09-16 and may be revised.
+
+## October 2026 qualification contribution — historical first checkpoint
+
+The 2026-10-11 campaign used Codex coordination with separate implementation,
+oracle-design, laboratory and acceptance reasoning lanes. Original source and
+failing outputs were preserved before a bounded IPv4 route-mask repair.
+Independent acceptance supports a HOLD and the local parser correction only.
+Guest experiments and hidden final holdouts remain unexecuted because lab
+admission is incomplete. No Claude/other external-provider execution is claimed.
+See docs/qualification-20261011 for exact revisions, receipts, limits and custody.
+
+## Completed qualification and experimental release preparation — 2026-10-11
+
+The first-checkpoint paragraph above predates guest admission and is retained as
+history, not current status. The first completed campaign executed 145 QEMU
+boots and held release after its original six holdouts exposed defects. The
+successor executed 69 additional boots, repaired the demonstrated defects,
+froze product commit `7e04d3cb076a48f2e131d6284a16f6bbb836ff58`, and evaluated ten
+new sealed cases without post-holdout implementation tuning. Independent
+acceptance is `QUALIFIED_WITH_LIMITATIONS`; the explicit oracle gap and other
+exclusions remain part of that decision. Counts include controls, repeats and
+infrastructure outcomes, not only independent successful fault conditions.
+
+Codex coordinated separate implementation, oracle, laboratory and acceptance
+lanes. These were independent reasoning roles, not independent institutions or
+a human operator study. No execution by an unrecorded provider is asserted.
+The author's release decision remains separate from agent-recorded evidence.
+
+The release-candidate branch preserves both campaign histories and the exact
+qualified product source. Release preparation fixes GitHub checkout authority,
+updates public documentation, audits the bounded repository/history, and wraps
+the existing executable for installation. It adds no diagnostic feature or
+Constellation integration. No reduction in operator diagnostic time has been
+measured. See [current qualification](docs/requalification-20261011/QUALIFICATION.md),
+[environment correction](docs/requalification-20261011/ACCEPTANCE-CORRECTION.md),
+and [release evidence](docs/release-v0.1/EVIDENCE.md).
