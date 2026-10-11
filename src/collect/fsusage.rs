@@ -127,6 +127,16 @@ fn parse_dimension(
 }
 
 fn parse_df_for_mount(output: &str, device: &str, mountpoint: &str) -> Result<(u64, u64), String> {
+    if device.is_empty()
+        || mountpoint.is_empty()
+        || device.trim() != device
+        || mountpoint.trim() != mountpoint
+    {
+        return Err(
+            "df identity unsupported: empty or boundary-whitespace source/mountpoint name"
+                .to_string(),
+        );
+    }
     let line = data_line(output)?;
     let mismatch = || {
         format!(
@@ -136,8 +146,9 @@ fn parse_df_for_mount(output: &str, device: &str, mountpoint: &str) -> Result<(u
     };
     // Match the exact snapshot names around the four capacity columns. This
     // supports literal spaces without guessing their token boundaries. A
-    // different source or target (including an unmounted path's parent) cannot
-    // be attached to the earlier mount merely because df exited successfully.
+    // row outside that name framing (including G35's unmounted-path parent)
+    // cannot be attached merely because df exited successfully. GNU df padding
+    // is not authentication of arbitrary underlying labels or mount generations.
     let middle = line
         .strip_prefix(device)
         .filter(|rest| rest.starts_with(char::is_whitespace))
@@ -312,6 +323,15 @@ Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
                 "{output}"
             );
         }
+    }
+
+    #[test]
+    fn boundary_whitespace_names_cannot_be_confused_with_df_padding() {
+        let padded = "Filesystem 1B-blocks Used Available Capacity Mounted on\nvolume        100 0 70 1% /mnt/data\n";
+        assert!(parse_df_for_mount(padded, "volume ", "/mnt/data").is_err());
+        assert!(parse_df_for_mount(padded, " volume", "/mnt/data").is_err());
+        let trailing_path = bytes_output("volume", 100, 70, "/mnt/data ");
+        assert!(parse_df_for_mount(&trailing_path, "volume", "/mnt/data ").is_err());
     }
 
     #[test]

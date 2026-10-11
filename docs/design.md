@@ -193,7 +193,10 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
   dimensions. This is name correspondence, not mounted-object or generation
   continuity: same-name replacement can remain undetected, and aliases/bind-view
   reporting differences conservatively yield UNKNOWN. Literal spaces are matched
-  around the capacity columns without silently normalizing names.
+  around the capacity columns without silently normalizing names. Empty or
+  boundary-whitespace expected names are unsupported. GNU df's source padding
+  can still hide trailing whitespace in an actual label, so correspondence is
+  to the admitted printed representation, not arbitrary kernel-label identity.
 - Limitation: Alibi cannot know operator intent. A deliberately read-only root is
   reported with wording that says so; evidence is shown, the operator judges.
   ZFS and network filesystems are out of V0's mount model.

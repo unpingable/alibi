@@ -34,3 +34,22 @@ Proposition: within the selected single-row df textual representation, a dimensi
 - `/data/git/alibi-qualification-evidence-20261011/guest-lab/corrected-baseline-batch/G35/TERMINAL.json` SHA-256 `19023a87ec996b395401fede849da91939ae4ab94fb1f250e41bf9ee7d66b5df`
 - `/data/git/alibi-qualification-evidence-20261011/guest-lab/corrected-baseline-batch/G35/captures/G35/stdout` SHA-256 `460c387728e09e06748eceb1ab80ae7b226f95a1b2856d4f1cee6fa170b44ee8`
 - `/data/git/alibi-qualification-evidence-20261011/guest-lab/corrected-baseline-batch/G35/captures/G35/metadata` SHA-256 `f5c44ec6d1ce1371f7fea0151f6c25e3d4a348cd2036fdfeb9c6cdfb3fbe1b2b`
+
+## Independent padding review and successor
+
+Independent acceptance identified that expected source `volume ` can consume a
+space in GNU df's column padding and match printed source `volume`. The first
+G35 candidate (`7cb0d1bcef7b2ddc34f59b277030eb3d77594c3a`, executable `7e2bc8a3f3b7e7c6f43927c083b304a37dae0e7e60ed6ed587da6c9517a71356`) remains preserved.
+`guest-lab/g35-padding-before` records a failing test before the successor repair.
+The successor refuses empty or boundary-whitespace expected source/mountpoint
+names; internal spaces remain supported. Its final checks and exact identities
+are recorded separately rather than overwriting the first freeze.
+
+Even this refusal cannot authenticate every actual source label: GNU df's
+printed trailing source spaces may be indistinguishable from column padding for
+a normal expected name. The supported property is expected-name textual
+correspondence under the admitted GNU df representation, not byte-for-byte
+authentication of arbitrary kernel labels or proof of mount generation. This
+representation limitation is explicit; no broader identity protocol is claimed.
+The successor adds one regression (118 unit tests total, 13 fsusage tests); exact
+completed verification is in its final-check receipt.

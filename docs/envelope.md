@@ -135,3 +135,9 @@ different mount after the mount snapshot, mismatched capacity becomes incomplete
 evidence; any separately valid positive remains available. Device aliases, bind
 views or unsupported quoting can conservatively cause UNKNOWN. Matching names
 is not proof of stable superblock identity or absence of same-name replacement.
+
+Empty or boundary-whitespace expected df source/mountpoint names are unsupported.
+Even ordinary expected names cannot authenticate all actual labels: trailing
+source-name spaces in GNU df output may look like column padding. The check
+therefore establishes correspondence to the admitted printed representation,
+not arbitrary kernel-label identity.
