@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-11T16:52:15.736431+00:00",
+  "owner": "oracle_design",
+  "baseline_source_revision": "6f8ad5fba4ed6f3fb9f32c9930377a0a48e06931",
+  "status": "PREDECLARED_UNEXECUTED",
+  "scope": "local external CLI command-substitution boundaries only; no guest, real kernel fault, or holdout qualification",
+  "invocation": [
+    "<exact-frozen-binary>",
+    "check",
+    "--json",
+    "kernel-scream"
+  ],
+  "isolation": "New exact campaign-owned fixture directory per case; PATH only that directory; absolute interpreter /bin/sh and absolute /bin/sleep; never replace system commands. Root owns storage and execution.",
+  "record": [
+    "fixture bytes/hash/modes",
+    "independent direct command stdout bytes and exit status where safe",
+    "exact binary hash and source identity",
+    "stdout stderr exit monotonic elapsed and outer-timeout",
+    "parsed receipt and declared allowable verdict comparison",
+    "fixture process retirement and exact cleanup"
+  ],
+  "cases": [
+    {
+      "id": "LE01",
+      "name": "missing acquisition executables",
+      "commands": {},
+      "allowable_verdicts": [
+        "UNKNOWN"
+      ],
+      "required_assertions": [
+        "Exit 2; kernel-log inadequate; neither executable found must be recorded."
+      ],
+      "independent_oracle": "Both executable path entries absent; PATH consists solely of owned fixture directory."
+    },
+    {
+      "id": "LE02",
+      "name": "permission denied executable",
+      "commands": {
+        "dmesg": {
+          "content": "#!/bin/sh\nprintf '%s\\n' '[    0.000000] Linux version inaccessible'\n",
+          "mode": "0600"
+        },
+        "journalctl": {
+          "content": "#!/bin/sh\nexit 1\n",
+          "mode": "0700"
+        }
+      },
+      "allowable_verdicts": [
+        "UNKNOWN"
+      ],
+      "required_assertions": [
+        "Exit 2; kernel-log inadequate; acquisition permission failure recorded."
+      ],
+      "independent_oracle": "Stat mode denies executable use and same-identity direct exec fails EACCES; journal explicitly fails."
+    },
+    {
+      "id": "LE03",
+      "name": "nonzero direct acquisition with positive stdout",
+      "commands": {
+        "dmesg": {
+          "content": "#!/bin/sh\nprintf '%s\\n' '[    1.000000] Oops: fixture partial retained event'\nexit 1\n",
+          "mode": "0700"
+        },
+        "journalctl": {
+          "content": "#!/bin/sh\nexit 1\n",
+          "mode": "0700"
+        }
+      },
+      "allowable_verdicts": [
+        "UNKNOWN",
+        "DEGRADED"
+      ],
+      "required_assertions": [
+        "CLEAR forbidden. UNKNOWN must describe failed acquisition; DEGRADED must cite retained positive and limitation."
+      ],
+      "independent_oracle": "The script emits a deliberately marked positive record then exits nonzero; this proves stdout content and failure, not a genuine kernel event.",
+      "adjudication": "UNKNOWN is sound if unsuccessful-command bytes are untrusted and discarded; DEGRADED is sound if acquisition policy trusts independently identified partial positive records. If implementation claims all retained positives survive, separately record loss-of-positive limitation. Do not manufacture a hardware failure from fixture text."
+    },
+    {
+      "id": "LE04",
+      "name": "invalid UTF-8 with otherwise benign text",
+      "commands": {
+        "dmesg": {
+          "content": "#!/bin/sh\nprintf '[    0.000000] Linux version control\\377\\n'\n",
+          "mode": "0700"
+        },
+        "journalctl": {
+          "content": "#!/bin/sh\nexit 1\n",
+          "mode": "0700"
+        }
+      },
+      "allowable_verdicts": [
+        "UNKNOWN"
+      ],
+      "required_assertions": [
+        "CLEAR forbidden for malformed required textual source; lossy conversion must not authorize complete negative evidence."
+      ],
+      "independent_oracle": "Capture direct stdout as bytes; strict UTF-8 decoding fails. This is encoding-boundary substitution, not proof real kernel transport emits it."
+    },
+    {
+      "id": "LE05",
+      "name": "empty direct log and no-entries fallback",
+      "commands": {
+        "dmesg": {
+          "content": "#!/bin/sh\nexit 0\n",
+          "mode": "0700"
+        },
+        "journalctl": {
+          "content": "#!/bin/sh\nprintf '%s\\n' '-- No entries --'\n",
+          "mode": "0700"
+        }
+      },
+      "allowable_verdicts": [
+        "UNKNOWN"
+      ],
+      "required_assertions": [
+        "Exit 2; empty/no-entries is insufficient negative evidence; no innocence."
+      ],
+      "independent_oracle": "Direct stdout empty, fallback exact sentinel, both status zero."
+    },
+    {
+      "id": "LE06",
+      "name": "inherited stdout deadline",
+      "commands": {
+        "dmesg": {
+          "content": "#!/bin/sh\n/bin/sleep 4 &\nprintf '%s\\n' '[    0.000000] Linux version retained-pipe-control'\nexit 0\n",
+          "mode": "0700"
+        },
+        "journalctl": {
+          "content": "#!/bin/sh\nexit 1\n",
+          "mode": "0700"
+        }
+      },
+      "allowable_verdicts": [
+        "UNKNOWN"
+      ],
+      "required_assertions": [
+        "No successful acquisition after the declared 3-second direct-command deadline while stdout remains open.",
+        "Record actual monotonic runtime and child identities; >3s success is F4 even if execution finishes before external cutoff.",
+        "Use external 7s cutoff; record cutoff as failure, never PASS."
+      ],
+      "independent_oracle": "Background finite sleep inherits stdout while direct child exits; fixture lifetime is 4s and not indefinite. Reconcile descendant exit after invocation.",
+      "timing_note": "Allow measured scheduler tolerance for timeout reporting; classify output acceptance beyond deadline independently of small latency jitter."
+    },
+    {
+      "id": "LE07",
+      "name": "failed direct acquisition with adequate fallback",
+      "commands": {
+        "dmesg": {
+          "content": "#!/bin/sh\nexit 1\n",
+          "mode": "0700"
+        },
+        "journalctl": {
+          "content": "#!/bin/sh\nprintf '%s\\n' '[    0.000000] Linux version local-fallback-control'\n",
+          "mode": "0700"
+        }
+      },
+      "allowable_verdicts": [
+        "CLEAR"
+      ],
+      "required_assertions": [
+        "Exit 0 with method identifying journal fallback, not dmesg.",
+        "C eligibility assumes this fixture matches the explicitly supported fallback output representation; if a repair changes command format, retain original run and specify successor fixture before execution."
+      ],
+      "independent_oracle": "Known good nonempty formatting control for baseline plain-text journal acceptance; failed primary acquisition does not make independently adequate fallback invalid.",
+      "eligibility": "Formatting/substitution positive control only; no empirical host innocence claim."
+    },
+    {
+      "id": "LE08",
+      "name": "both acquisitions emit known non-log text",
+      "commands": {
+        "dmesg": {
+          "content": "#!/bin/sh\nprintf '%s\\n' 'not a kernel log'\n",
+          "mode": "0700"
+        },
+        "journalctl": {
+          "content": "#!/bin/sh\nprintf '%s\\n' 'also not acquired kernel evidence'\n",
+          "mode": "0700"
+        }
+      },
+      "allowable_verdicts": [
+        "UNKNOWN"
+      ],
+      "required_assertions": [
+        "CLEAR forbidden for these known substituted non-log outputs; receipt must not label validated complete kernel evidence."
+      ],
+      "independent_oracle": "Oracle knows both outputs are fixture-generated non-log text. The byte strings alone are not universally distinguishable from arbitrary kernel message bodies.",
+      "adjudication": "Fixture-scoped F0/F2/F3 if CLEAR. Do not claim syntactic authenticity proof or that timestamp-shaped arbitrary text is real evidence."
+    }
+  ],
+  "prior_controls": "Retain existing malformed-log, healthy-log-control and empty-log-control baseline evidence separately; no duplicate counting.",
+  "retirement": "Keep minimal spec and result identities with campaign review; remove exact temporary executables/directories after finite children exited; review at campaign closeout."
+}

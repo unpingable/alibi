@@ -56,3 +56,13 @@ may vary across sessions and are not exhaustively reconstructed here.
 ---
 
 This document reflects the project state as of 2026-09-16 and may be revised.
+
+## October 2026 qualification contribution
+
+The 2026-10-11 campaign used Codex coordination with separate implementation,
+oracle-design, laboratory and acceptance reasoning lanes. Original source and
+failing outputs were preserved before a bounded IPv4 route-mask repair.
+Independent acceptance supports a HOLD and the local parser correction only.
+Guest experiments and hidden final holdouts remain unexecuted because lab
+admission is incomplete. No Claude/other external-provider execution is claimed.
+See docs/qualification-20261011 for exact revisions, receipts, limits and custody.

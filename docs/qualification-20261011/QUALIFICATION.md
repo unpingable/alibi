@@ -1,0 +1,17 @@
+# Release disposition: HELD_DEFECT
+
+Scope: baseline `6f8ad5fba4ed6f3fb9f32c9930377a0a48e06931` and locally repaired implementation `0427a7c0a81bb0b8212cc2e9a093453354121119`. This is a defensible negative disposition from executed local counterexamples and incomplete guest evidence, not completed real-host qualification. No environment/accusation combination is release-qualified by this campaign.
+
+Unresolved command-deadline failure and malformed-evidence acceptance remain. Controlled command fixtures produce false CLEAR/overstated completeness. Route-mask repair has local evidence only. Additional **HELD_EVIDENCE / ENVIRONMENT_BLOCKED** reasons: zero guest trials, zero final holdout executions, no second Linux environment, no empirical storage/resource/race qualification. Required checks pass (106 tests candidate plus fmt/clippy/release); passing them does not overcome these gates.
+
+Guest infrastructure: QEMU TCG available, KVM absent; installed kernel unreadable and noninteractive sudo read unavailable. Candidate bulk mount /tank/nfs is read-only. User authorization for up to 4 GiB alternative /data allocation or another writable configured destination was requested and remains unanswered at this disposition. Under /data/git/AGENTS.md storage destination policy, this campaign did not silently redirect guest artifacts. Kernel acquisition and smallest durable boot are prepared next steps, not completed work. Approved detached-service mechanism has a bounded successful rehearsal.
+
+Release gates: false CLEAR unresolved in fixture boundary; unsupported positive attribution not demonstrated but not guest-qualified; no authority violation demonstrated but no exhaustive F5 qualification; source completeness claim contradicted in fixtures; deadline reliability defect unresolved; no guest reproduction evidence; no qualified environment; exclusions documented; existing regression checks pass; final holdouts honestly unexecuted. **Do not release, tag or publish on this evidence.**
+
+## What can an operator trust tomorrow?
+
+Trust the receipt's named accusation boundary rather than a health conclusion. Within tested missing/denied/empty acquisition cases, kernel-scream correctly returns UNKNOWN and does not start an innocence claim. Explicit fallback formatting control correctly clears with the fallback method. The candidate correctly distinguishes tested zero-address /8 and /32 route rows from /0. These are bounded observed behaviors, not general soundness guarantees.
+
+Do not yet rely on arbitrary CLEAR as sufficient independent exoneration: controlled non-log/invalid-encoding inputs were labeled complete and cleared, and command pipes outlived the advertised acquisition deadline. Real mount-identity transitions, kernel log retention, compound faults and most hardware conditions remain unqualified. A network CLEAR never establishes DNS, gateway, application or service functionality; memory integrity cannot be cleared by absent VM EDAC. UNKNOWN remains the correct outcome when required evidence is unavailable.
+
+See RESULTS.md for counts and caveats, FINDINGS.md for reproducers, HARNESS.md for the next bounded boot. Useful real-host exoneration and false-CLEAR incidence are both unmeasured. Six final holdouts remain sealed from implementation work for a later frozen-candidate guest evaluation. No inference of success follows from zero executed guest trials.
