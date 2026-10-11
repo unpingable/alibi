@@ -1,26 +1,69 @@
-# Storage and runtime closeout — 2026-10-11
+# Storage and runtime closeout — guest campaign successor
 
-Root campaign agent owns aggregate allocation. This is closeout of the executed local phase; guest admission remains pending. Evidence receipts: `/data/git/alibi-qualification-evidence-20261011/PRE-CLOSEOUT.json`, `CLOSEOUT.json`, `ARTIFACT-CUSTODY.json`, `runtime/CUSTODY.json`, and CHECKPOINT.json. No other tenant was cleaned or modified.
+Root owns campaign storage. The guest continuation and six final holdouts are
+terminal. This record supersedes the earlier local-only closeout narrative;
+`CLOSEOUT.json` and `PRE-CLOSEOUT.json` remain unchanged historical evidence.
+Current exact receipt: `/data/git/alibi-qualification-evidence-20261011/GUEST-CLOSEOUT.json`.
+The preceding read-only census is `storage-closeout-inventory.json` in that root.
 
-Initial free bytes: / 385745440768; /data 630935212032. Before retirement: / 385422782464; /data 630359130112. After retirement: / 385422192640; /data 630781517824. Both exceed the hard 64424509440-byte floor. Final free inodes at that sample: / 57709047; /data 120382549. Shared host changes are concurrent and cannot be attributed to this campaign's cleanup. No reserve was lowered.
+Root authorized exactly 22 census candidates, the final holdout expanded root,
+and the inventory-generation scratch script. The execution lane retired those
+24 paths: 21 expanded initramfs roots, the campaign compiler target, worktree
+Python cache, and `/tmp/alibi-storage-inventory.py`. No archives, BUILD receipts,
+kernels, downloaded modules/packages, raw captures, retained executables/libraries,
+source commits, or other tenants' artifacts were removed.
 
-| Object | Classification | Disposition |
-|---|---|---|
-| Dedicated worktree /data/git/alibi-qualification-20261011 | Source/unique commits and reviewable harness | Retain branch and source; 573440 allocated bytes at closeout sample, before final documentation/commit metadata. |
-| Exact campaign target tree | Reproducible build output | Removed after preserved binary/library custody, no named live build, no visible process references, no mounts, and all 383 hard-link groups resolved wholly inside tree. 138731520 allocated bytes reclaimed. |
-| Two helper executables | Reproducible fixture outputs | Immediately retired by original runners: 4697184 and 4697464 logical bytes; their allocated-byte baselines were not measured. Do not add logical size to allocated-byte reclamation totals. |
-| Evidence root | Durable minimal results, exact replay inputs, held final oracle | 7012352 allocated bytes at closeout sample; includes subsequent PRE-CLOSEOUT/CLOSEOUT records. Small manifest/checkpoint additions follow. Retained purpose/review below. |
-| Baseline/candidate executables and rlibs | Exact replay custody | Four distinct artifacts; baseline rlib has two named hard-link aliases inside evidence root. Hashes, modes and link counts recorded. |
-| Three shared dynamic runtime inputs | Exact executable replay dependency | 2549064 logical bytes retained; hashes in runtime/CUSTODY.json. |
-| Kernel downloads, guest disks/ISOs/initramfs, VM caches/corpora | None created | Zero; guest storage destination not admitted. Harness construction is unexecuted. |
-| Other user-owned targets/worktrees/VMs | Outside cleanup authority | Original Alibi target ~228966400 allocated bytes observed read-only and left untouched. Shared other-tenant allocation totals/future plans unknown. |
+Before retirement, 345 retained-input hash checks matched BUILD/PLAN/START and
+executable/library custody receipts. Every named batch had its terminal record,
+every planned invocation had a terminal record, and checkpoint active producers
+was empty. No mounts or accessible process references pointed into cleanup paths.
+All 415 candidate hard-link groups were reconciled against campaign evidence and
+worktree names; retained aliases were preserved. Process inspection covers only
+the visible process namespace and readable descriptors, not a universal absence
+claim. Audit continues against retained archives and receipts.
 
-Known created/retired material is enumerated above. A complete cumulative byte-write or peak-allocation total was not measured; compiler overwrites and intermediate files prevent reconstructing one honestly. At least the measured final target plus retained source/evidence were created by this phase (roughly 146 MB allocated); this is a lower bound, not total write volume. No new clone, package/download cache or multi-GB log was created. No estate-wide scan was performed; remaining shared large consumers are not exhaustively attributed.
+| Measurement | Allocated bytes |
+|---|---:|
+| Retired path totals, including directory blocks | 424,366,080 |
+| Reclaimed unique regular-file blocks after accounting for retained hard links | 422,412,288 |
+| Retained evidence root immediately after cleanup | 268,275,712 |
+| Retained source worktree immediately after cleanup | 995,328 |
 
-Consumer inspection outside the sandbox found no visible reference to the exact target. 334 inaccessible/disappearing unrelated process entries limit that observation; all named campaign build/test and detached fixture producers were terminal. No guest backing relationship exists because no guest/image was created. This limitation does not imply unrelated tenants were inspected or changed. Captured hardlink details explain ownership; all target links were internal before retirement.
+Small receipt, documentation and commit additions follow these samples. Complete
+campaign bytes-created and cumulative writes were not measured; compiler rewrites
+and intermediate files prevent reconstructing them from final totals. Filesystem
+free-space changes include concurrent tenants and are not attributed solely to
+this cleanup. The earlier local-phase retirement is separately recorded and is
+not silently folded into these successor figures.
 
-Minimal results, scripts and exact pre/post repair replay inputs remain under campaign root custody for review and the admitted guest continuation. Next custodian: operator reviewing this handoff. Concrete retirement condition: final guest round and result review end the exact-replay dependency, or operator closes the interrupted campaign and selects the minimal archived evidence. Review due 2026-10-18 if no continuation occurs. Six hidden holdouts remain sealed for frozen-candidate evaluation; reveal/incorporate their replay contents after that evaluation. Retention is not indefinite by default. No automatic deletion or scheduled cleanup was created.
+After retirement, available bytes were 385,370,923,008 on `/` and 630,043,521,024
+on `/data`; free inodes were 57,709,189 and 120,367,683 respectively. Both exceed
+the independent 64,424,509,440-byte reserve. No reserve was lowered. No storage
+pressure follow-up is indicated by these measurements.
 
-Both detached user services finished; exact finite fixture descendant groups were reconciled empty. No persistent campaign process remains. No SSH identity was generated, enrolled, loaded or forwarded; no inherited agent was inspected or altered; no revocation claim is needed. No container or host cgroup changes were made.
+Remaining largest custody objects include exact matching-module acquisition
+(33,218,560 bytes), extracted 6.8 kernel (15,020,032), its verified package
+(14,737,408), extracted 6.5 kernel (14,405,632), its package (14,401,536), and final
+matrix captures (12,521,472). The receipt enumerates further objects. Initramfs
+archives, baseline/final executables and libraries, exact fixture inputs, signed
+package-verification inputs, captured raw observations, terminal receipts and
+source commits retain independent acceptance/replay dependencies.
 
-No storage-pressure follow-up is required from these capacity samples. The outstanding storage action is choosing an authorized writable guest destination; owner/operator reply, then root remeasures admission immediately before allocation. The 4 GiB proposal remains a pending authorization, not consumed storage.
+Custodian and next action: root/operator reviews the remaining exact replay
+requirements at acceptance, no later than 2026-10-18, and selects minimal durable
+custody. Download/extraction redundancy is retained under the explicit current
+replay instruction; it is not indefinite retention. Any later retirement needs
+exact consumer/dependency checks and its applicable authority. No new background
+cleanup or retention framework was introduced.
+
+No SSH identity was generated, enrolled, loaded or forwarded. No inherited agent
+was inspected or modified. No guest disks or writable host-backed devices were
+created; QEMU used isolated kernel/initramfs inputs. No other tenant's VM, container,
+service cgroups or data were changed by closeout.
+
+Formalization consideration: exact-path retirement after retained hash validation
+and hard-link reconciliation is the bounded proposition. The receipt records all
+paths, hashes and observed links; direct finite checks suffice here. Process
+visibility and concurrent filesystem allocation remain explicit empirical limits.
+Decision owner is root; execution lane is lab_feasibility. This establishes no
+stronger global storage or process absence theorem.
