@@ -48,7 +48,12 @@ but an incomplete required source can never authorize `CLEAR`.
 
 ## Build and use
 
-Requires a Rust toolchain. No external crates; single static binary.
+Requires a Rust toolchain. There are no external Rust crates. The ordinary
+Linux GNU release build produces one executable dynamically linked to the
+system runtime; a standalone static distribution has not been qualified.
+Command collection currently supports the Linux x86_64 GNU signal ABI. See
+[the interrogation envelope](docs/envelope.md) for command dependencies and
+evidence limitations.
 
 ```sh
 cargo build --release
