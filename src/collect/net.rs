@@ -312,6 +312,8 @@ pub fn parse_v4_default(content: &str) -> Result<bool, String> {
         if fields.len() < 8
             || fields[1].len() != 8
             || !fields[1].bytes().all(|b| b.is_ascii_hexdigit())
+            || fields[7].len() != 8
+            || !fields[7].bytes().all(|b| b.is_ascii_hexdigit())
         {
             return Err(format!("malformed route row: {:?}", line));
         }
@@ -321,7 +323,12 @@ pub fn parse_v4_default(content: &str) -> Result<bool, String> {
         // an output device. The kernel prints "*" for routes with no nexthop
         // device (`blackhole`, which carries no RTF_REJECT, as well as
         // `unreachable`/`prohibit`); no unicast route lacks one.
-        found |= fields[1] == "00000000" && flags & RTF_REJECT == 0 && fields[0] != "*";
+        // A zero destination can also name 0.0.0.0/8 or 0.0.0.0/32.
+        // Only a zero netmask makes the row a default route.
+        found |= fields[1] == "00000000"
+            && fields[7] == "00000000"
+            && flags & RTF_REJECT == 0
+            && fields[0] != "*";
     }
     Ok(found)
 }
@@ -423,6 +430,28 @@ eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
     fn detects_v4_default_route() {
         assert!(has_v4_default(ROUTE_WITH_DEFAULT));
         assert!(!has_v4_default(ROUTE_WITHOUT_DEFAULT));
+    }
+
+    #[test]
+    fn zero_network_prefixes_are_not_default_routes() {
+        let header = "Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\n";
+        for mask in ["000000FF", "FFFFFFFF"] {
+            let row = format!("eth0 00000000 00000000 0001 0 0 0 {} 0 0 0\n", mask);
+            assert_eq!(parse_v4_default(&format!("{}{}", header, row)), Ok(false));
+            assert_eq!(
+                parse_v4_default(&format!("{}{}", ROUTE_WITH_DEFAULT, row)),
+                Ok(true)
+            );
+        }
+        assert_eq!(parse_v4_default(ROUTE_WITH_DEFAULT), Ok(true));
+    }
+
+    #[test]
+    fn malformed_ipv4_masks_fail_closed_even_after_a_default() {
+        for mask in ["0", "0000000g", "000000000"] {
+            let row = format!("eth0 00000000 00000000 0001 0 0 0 {} 0 0 0\n", mask);
+            assert!(parse_v4_default(&format!("{}{}", ROUTE_WITH_DEFAULT, row)).is_err());
+        }
     }
 
     #[test]
