@@ -223,7 +223,7 @@ else f7 G11 'resolver query utility absent'; fi
 }
 
 case_G12() {
-load_selected_modules nfnetlink nf_tables nft_counter
+load_selected_modules libcrc32c nfnetlink nf_tables nft_counter
 if command -v nft >/dev/null && /bin/nft add table inet aqfilter && /bin/nft 'add chain inet aqfilter output { type filter hook output priority 0; policy accept; }' && /bin/nft 'add rule inet aqfilter output ip daddr 127.0.0.1 counter drop'; then
   start G12 real-guest-filter bounded-C-allowed-if-no-named-positive
   /bin/timeout 3 ping -c 1 -W 1 127.0.0.1 >"$LAB/filter-probe" 2>&1; p=$?
@@ -369,7 +369,7 @@ else f7 G23 'small tmpfs mount failed'; fi
 }
 
 case_G24() {
-load_selected_modules xfs
+load_selected_modules libcrc32c xfs
 if command -v mkfs.xfs >/dev/null && command -v xfs_io >/dev/null && command -v losetup >/dev/null; then
   available=$(/bin/stat -f -c '%a %S' "$LAB" | awk '{printf "%.0f",$1*$2}')
   if [ "$available" -lt 408944640 ]; then f7 G24 'guest lacks350MiB image plus40MiB free reserve; requires768MiB guest'; return; fi
@@ -405,11 +405,11 @@ if command -v dmsetup >/dev/null && new_ext4; then
     /bin/dmsetup --noudevsync suspend aqerror && /bin/dmsetup --noudevsync reload aqerror --table '0 65536 error' && /bin/dmsetup --noudevsync resume aqerror
     transition=$?
     printf 'INDEPENDENT_DM_TRANSITION rc=%s\n' "$transition"; /bin/dmsetup table aqerror; /bin/dmsetup status aqerror
-    /bin/timeout 5 dd if=/dev/mapper/aqerror of=/dev/null bs=4096 count=1 >"$LAB/dm-read.stdout" 2>"$LAB/dm-read.stderr"; p=$?
+    /bin/timeout 5 /bin/dd if=/dev/mapper/aqerror of=/dev/null bs=4096 count=1 iflag=direct >"$LAB/dm-read.stdout" 2>"$LAB/dm-read.stderr"; p=$?
     printf 'INDEPENDENT_DM_READ rc=%s\n' "$p"; cat "$LAB/dm-read.stderr"
     /bin/timeout 5 dd if=/dev/zero of="$LAB/mnt/after-error" bs=4096 count=1 conv=fsync >"$LAB/dm-write.stdout" 2>"$LAB/dm-write.stderr"; w=$?
     printf 'INDEPENDENT_DM_WRITE rc=%s\n' "$w"; cat "$LAB/dm-write.stderr"
-    if [ "$transition" -eq 0 ] && [ "$p" -ne 0 ]; then
+    if [ "$transition" -eq 0 ] && [ "$p" -ne 0 ] && [ "$p" -ne 124 ] && grep -qi 'Input/output error' "$LAB/dm-read.stderr"; then
       run "$BIN" check --json kernel-scream silent-killer; finish
     else f7 G25 'actual error target/read failure not established'; fi
     /bin/timeout 5 umount "$LAB/mnt"; u=$?

@@ -1,5 +1,5 @@
 #!/bin/sh
-# UNEXECUTED guest scenario. Never run on the development host.
+# Disposable guest scenario. Never run on the development host.
 set -eu
 case " $(cat /proc/cmdline) " in
   *" alibi_run="*) ;;

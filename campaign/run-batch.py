@@ -49,6 +49,8 @@ for case in plan['cases']:
             '--case-id', case['case_id'], '--timeout', str(case.get('timeout', 120)),
             '--memory-mib', str(case.get('memory_mib', 512)),
             '--isolated-nics', str(case.get('nics', 1))]
+    if case.get('carrier_control'):
+        argv += ['--carrier-control', '--nic-model', case.get('nic_model', 'e1000')]
     completed = subprocess.run(argv, stdin=subprocess.DEVNULL)
     terminal = Path(case['output']) / 'TERMINAL.json'
     result = dict(case=case['case_id'], run_id=case['run_id'], exit_status=completed.returncode,
