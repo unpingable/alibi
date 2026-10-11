@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "owner": "oracle_design",
+  "time": "2026-10-11T21:02:51.889481+00:00",
+  "disclosed_to": [
+    "root execution/storage owner"
+  ],
+  "not_disclosed_to": [
+    "implementation lane"
+  ],
+  "freeze": {
+    "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/FINAL-FREEZE.json",
+    "sha256": "9973ed36810bfe84217933179723fb840dc2a574c939f49bef37f5c7f46e2ddd"
+  },
+  "product_source_revision": "7e04d3cb076a48f2e131d6284a16f6bbb836ff58",
+  "binary_sha256": "0760ea3529ac3c3d831038a71c46f82b6bd3d750fd4dbc52866399962e593b06",
+  "verified_input_seals": [
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/SEAL.json",
+      "sha256": "20b0be9e4ee3c355ff805becbc7d20b5d43cdacc004f4ad69a7e6eead3090a39"
+    },
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/MANIFEST.json",
+      "sha256": "fff826357e2787b21e23937d11b4bd6b6bfb9643b4c14bcc0bafc7d1818b09b9"
+    },
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/guest-sealed.sh",
+      "sha256": "4cfee6627a702158bbf762fdda385e65ebd372aa0a03dc7a2a94cfcb55849acd"
+    },
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/PROVENANCE.md",
+      "sha256": "e6373ab4e3c2ae84e0585fab5f3643d8bf7fb4dc3a990f400817ca750c653d5a"
+    },
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/EXECUTION-SEAL-V2.json",
+      "sha256": "6e5ac50d4f1e4cd0b3499723c47f5d1c164f362b11ca783fd898cd118624e3ce"
+    }
+  ],
+  "authorization": "Root explicit final implementation freeze, subsequent disclosure and constructor request. No oracle/scenario changes after freeze.",
+  "constructor": {
+    "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/prepare-fresh-holdouts.py",
+    "sha256": "9e4649f55a492ee6182d8f0f8ed1f345dff5655ba6e0e6445c680dbe6d96b8da"
+  },
+  "construction_contract": {
+    "requires_registration": "Exactly one CHECKPOINT.active_producers entry kind archive-construction with script,script_sha256,source_revision,unit; if invocation_id present must match. Running systemd unit InvocationID must equal process INVOCATION_ID.",
+    "command": [
+      "/usr/bin/python3",
+      "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/prepare-fresh-holdouts.py"
+    ],
+    "output_build": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/fresh-holdout-build",
+    "output_batch": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/fresh-holdout-batch",
+    "terminals": [
+      "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/fresh-holdout-batch/CONSTRUCTION-COMPLETE.json",
+      "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/fresh-holdout-batch/CONSTRUCTION-FAILED.json"
+    ],
+    "next_phase": "Only root registers and runs generated ten-case PLAN using copied patched run-batch.py; constructor launches no VM.",
+    "resource": "128MiB new construction envelope; aggregate original4GiB cap and both60GiB host reserves rechecked;512MiB guest one at a time"
+  },
+  "checks": {
+    "seal_correspondence": "PASS",
+    "helper_source_binary_receipt_hashes": "PASS",
+    "constructor_static_python_syntax": "PASS",
+    "constructor_executed": false,
+    "guest_executions": 0
+  },
+  "recovery": "Read exact registered constructor/InvocationID and CONSTRUCTION-START/log/terminal before any successor. Never overwrite or duplicate existing build/batch. Both success and exception terminals are exclusive fsynced records. Root supervises with existing durable mechanism.",
+  "formalization": "Exact sealed inputs and freeze bind constructor output; finite10-ID plan with new UUIDs, no launches during construction. Registry plus actual systemd invocation equality prevents accidental unregistered producer. Source semantics/oracles unchanged; runtime effects still require independent post-terminal guest observation.",
+  "custody": "Root owns archive/build and next serial producer. Exact script/manifest/helper/product identities retained for once-only final evaluation and acceptance; expanded root/caches retire after terminal receipt/seal and no consumer/recovery dependencies. Review2026-10-18 or closeout."
+}

@@ -24,10 +24,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('batches', nargs='+', type=Path)
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--include-invocation', action='append', default=[], type=Path,
+                        help='Independently confirmed wrapped human invocation capture directory')
     args = parser.parse_args()
     result = dict(schema_version=1, scope='descriptive execution measurements only',
                   caveat='Boots and CLI invocations are not independent qualification cases; oracle eligibility is separate.',
-                  batches=[], guests=[], cli=[], groups=[])
+                  batches=[], guests=[], cli=[], groups=[],
+                  explicitly_included_invocations=[str(p.resolve()) for p in args.include_invocation])
+    included = {p.resolve() for p in args.include_invocation}
+    observed_included = set()
     seen = set()
     for batch in args.batches:
         sealed = batch / 'COMPLETE.json'
@@ -60,7 +65,10 @@ def main():
                     parsed = None
                 is_receipt = isinstance(parsed, dict) and parsed.get('tool') == 'alibi' and parsed.get('receipt_version') == 2
                 direct = any(Path(a.decode(errors='replace')).name == 'alibi' for a in argv if a)
-                if not direct and not is_receipt:
+                explicit = directory.resolve() in included
+                if explicit:
+                    observed_included.add(directory.resolve())
+                if not direct and not is_receipt and not explicit:
                     continue
                 metadata = json.loads(metadata_path.read_text())
                 measurement = dict(**identity, invocation=directory.name,
@@ -84,6 +92,8 @@ def main():
                     if match:
                         measurement[key] = float(match[1])
                 result['cli'].append(measurement)
+    if observed_included != included:
+        raise ValueError('explicit invocation absent from verified guest captures')
     for source, kernel in sorted({(x['source_revision'], x['kernel_sha256']) for x in result['cli']}):
         rows = [x for x in result['cli'] if (x['source_revision'], x['kernel_sha256']) == (source, kernel)]
         result['groups'].append(dict(source_revision=source, kernel_sha256=kernel, invocations=len(rows),

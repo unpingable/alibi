@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "time": "2026-10-11T20:25:46.779844+00:00",
+  "case_count": 10,
+  "inputs": [
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/MANIFEST.json",
+      "sha256": "fff826357e2787b21e23937d11b4bd6b6bfb9643b4c14bcc0bafc7d1818b09b9"
+    },
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/guest-sealed.sh",
+      "sha256": "4cfee6627a702158bbf762fdda385e65ebd372aa0a03dc7a2a94cfcb55849acd"
+    },
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/PROVENANCE.md",
+      "sha256": "e6373ab4e3c2ae84e0585fab5f3643d8bf7fb4dc3a990f400817ca750c653d5a"
+    }
+  ],
+  "static_checks": {
+    "main_shell_syntax": "PASS",
+    "generated_shell_scripts_checked": 4,
+    "guest_executions": 0
+  },
+  "no_repair_source_inspection": true,
+  "disclosure": "NOT_DISCLOSED; root only hashes/resources until explicit freeze"
+}

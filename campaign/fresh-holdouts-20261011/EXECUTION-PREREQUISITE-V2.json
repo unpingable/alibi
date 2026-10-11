@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "version": 2,
+  "time": "2026-10-11T20:29:06.867001+00:00",
+  "owner": "oracle_design",
+  "status": "AWAITING_EXACT_HELPER_SUCCESSOR_RECEIPT_BEFORE_FREEZE",
+  "original_execution_seal": {
+    "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/SEAL.json",
+    "sha256": "20b0be9e4ee3c355ff805becbc7d20b5d43cdacc004f4ad69a7e6eead3090a39"
+  },
+  "unchanged_inputs": [
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/MANIFEST.json",
+      "sha256": "fff826357e2787b21e23937d11b4bd6b6bfb9643b4c14bcc0bafc7d1818b09b9"
+    },
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/guest-sealed.sh",
+      "sha256": "4cfee6627a702158bbf762fdda385e65ebd372aa0a03dc7a2a94cfcb55849acd"
+    },
+    {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/PROVENANCE.md",
+      "sha256": "e6373ab4e3c2ae84e0585fab5f3643d8bf7fb4dc3a990f400817ca750c653d5a"
+    }
+  ],
+  "compatibility_finding": "Existing guest-only TUN helper admits only G13/G14 kernel command-line IDs and refuses all fresh IDs before any condition can be induced. No execution occurred.",
+  "requested_fix": "Root-owned versioned environmental helper extends exact admitted ID set to Q01..Q10 while preserving G13/G14, geteuid0, exact disposable hostname, nonempty alibi_run,20second emit/hold caps and unchanged generator. Whole fresh ID set disclosed as infrastructure-only prerequisite; use locations/expectations remain private.",
+  "oracle_changes": "NONE. No case, condition, expected verdict or temporal threshold changes. Original sealed manifest/script preserved.",
+  "next_action": "Root produces exact helper source/binary receipt under ordinary guest-only build authority; oracle seals final execution addendum before disclosure/launch. Never execute helper on development host.",
+  "formalization": "Admission predicate extension is finite disjunction over exact new case IDs and preserves conjunction of original guest guards. It admits environmental test helper execution in existing authorized disposable guests, not host authority or product behavior. Static source diff plus exact build receipt sufficient; actual induction remains independently required.",
+  "custody": "Owner oracle_design, root helper producer/custodian. Keep minimal correction plus exact helper source/binary for replay; review disposable build output at campaign closeout or2026-10-18."
+}

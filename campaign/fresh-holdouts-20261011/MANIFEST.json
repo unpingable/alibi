@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "owner": "oracle_design",
+  "created_at": "2026-10-11T20:25:46.779844+00:00",
+  "base_revision": "6a7b5012494b090726c4184644cdaccbaba7837e",
+  "status": "SEALED_UNEXECUTED_NOT_DISCLOSED",
+  "case_count": 10,
+  "normative_inputs": [
+    {
+      "path": "/data/git/alibi-requalification-20261011/docs/design.md",
+      "sha256": "bd93356b3085f20fcb66b2f86f2534b53a6dde87f9198921a76f40b462ff9988"
+    },
+    {
+      "path": "/data/git/alibi-requalification-20261011/docs/envelope.md",
+      "sha256": "d18e0eb699e700181b672377b0edf3ad2d90439a166248f40c59e97b99196db8"
+    }
+  ],
+  "design_independence": "Only normative docs, prior public campaign behavior and established guest helper ABI consulted; no evolving repair sources/regression files read. Original H01-H06 not reused. Root/implementation receive only seals and resource/tool requirements before explicit freeze.",
+  "cases": [
+    {
+      "id": "Q01",
+      "name": "Healthy loaded-subsystem control",
+      "kind": "real guest configuration",
+      "accusations": "kernel-scream,silent-killer,network-choke-point",
+      "mechanism": "Load conntrack and nft hook; establish four real UDP flow entries with max4096; retain ample supported filesystems and quiet actual log.",
+      "independent_proof": "Raw count positive and below100 before/after, nft counter, raw link identities/counters/routes, statfs and actual log.",
+      "allowable": "K CLEAR; S CLEAR; N CLEAR when all required sources complete. Loaded conntrack is applicable required evidence, not absent.",
+      "clear_eligibility": "K,S,N eligible; exact subsystem low-pressure condition must be independently present.",
+      "novelty": "Healthy conntrack present with live entries, unlike prior absent-subsystem control and pressure case.",
+      "receipt_and_limits": "JSON and default human; identify kernel-log, mounts,fs-usage,net,routes,conntrack roles/status/methods and sample window."
+    },
+    {
+      "id": "Q02",
+      "name": "State transition with preserved interface identity",
+      "kind": "real guest state transition",
+      "accusations": "network-choke-point",
+      "mechanism": "Bring one veth endpoint down then up during sampling; never delete or rename either endpoint.",
+      "independent_proof": "Actor timestamps and successful command codes, ifindices unchanged before/during/after; actual interface error/drop counters stable; real log inspected.",
+      "allowable": "N CLEAR if unchanged identity, valid cumulative observations and all required negative evidence. UNKNOWN only when a concrete required acquisition/continuity limitation is established; state change alone is not a named positive.",
+      "clear_eligibility": "N eligible after identity/counter/source checks; a merely conservative UNKNOWN reduces usefulness.",
+      "novelty": "Actual administrative-state transition in stable veth generations, testing useful exoneration across state change rather than replacement.",
+      "receipt_and_limits": "Require actual transition within bounded sample interval; failure to prove overlap F7 for temporal claim."
+    },
+    {
+      "id": "Q03",
+      "name": "Two-object name permutation",
+      "kind": "real guest identity transition",
+      "accusations": "network-choke-point",
+      "mechanism": "During sampling set two existing veth endpoints down, swap their names through a temporary name, restore both up. No object creation/deletion.",
+      "independent_proof": "Before/after name-to-ifindex mappings exchange, exact ifindex set remains constant, successful renames and transition timestamps strictly inside sample.",
+      "allowable": "N UNKNOWN absent another independently supported positive. Names repeat but refer to different endpoint identities across the sample; no cross-object counter subtraction supports CLEAR.",
+      "clear_eligibility": "N not eligible; continuity of name-to-object correspondence is inadequate.",
+      "novelty": "Distinct from prior same-name deletion/recreation: both original objects survive and the name set is unchanged after a permutation.",
+      "receipt_and_limits": "Wrong-generation CLEAR F0/F2/F3; real nonnegative counters do not establish identity continuity."
+    },
+    {
+      "id": "Q04",
+      "name": "Malformed identity plus independently established route positive",
+      "kind": "guest evidence substitution plus actual route condition",
+      "accusations": "network-choke-point",
+      "mechanism": "Remove actual defaults and privately bind a nonnumeric file over the main interface ifindex; actual netlink identity remains available to outside observer.",
+      "independent_proof": "Both real route tables establish no usable default; same-namespace read shows exact nonnumeric identity text while outside sysfs/netlink remains numeric.",
+      "allowable": "N DEGRADED from complete independent route absence; required net identity limitation must be retained in JSON and default human.",
+      "clear_eligibility": "N not eligible; positive and inadequate identity coexist.",
+      "novelty": "Different source boundary from prior missing logs or denied traffic counter, and different retained positive.",
+      "receipt_and_limits": "Do not silently claim net complete; human must distinguish required malformed identity from scoped absence/supporting evidence."
+    },
+    {
+      "id": "Q05",
+      "name": "Full separate tmpfs with independently healthy network",
+      "kind": "real guest compound unrelated accusations",
+      "accusations": "silent-killer,network-choke-point",
+      "mechanism": "Fill a bounded1MiB separate material tmpfs while root remains ample and network evidence remains healthy.",
+      "independent_proof": "Failed bounded fill plus target statfs free<=5%; each material mount measured independently; net counters/routes/log complete.",
+      "allowable": "S DEGRADED; N CLEAR. No causal attribution between storage capacity and network function.",
+      "clear_eligibility": "N eligible if all sources complete; S not eligible because actual capacity positive.",
+      "novelty": "New selected-accusation compound tests useful network exoneration alongside independently induced storage degradation.",
+      "receipt_and_limits": "JSON and default human must preserve per-finding distinctions and aggregate DEGRADED."
+    },
+    {
+      "id": "Q06",
+      "name": "Three-verdict compound with low disk usage and no EDAC",
+      "kind": "real guest compound",
+      "accusations": "silent-killer,memrot,network-choke-point",
+      "mechanism": "Create real conntrack count120/max128 while supported filesystems ample and EDAC absent.",
+      "independent_proof": "Count/max and hook counters before/after each invocation; statfs adequate; actual EDAC enumeration absent; raw log for additional positives.",
+      "allowable": "S CLEAR; M UNKNOWN; N DEGRADED. Aggregate DEGRADED, no aggregate innocence or MTTI; human preserves all roles and source limitations.",
+      "clear_eligibility": "S eligible; M,N not eligible.",
+      "novelty": "New three-state composition over live pressure, unavailable unrelated hardware evidence and clear filesystems, not a stand-alone pressure repetition.",
+      "receipt_and_limits": "Retained required EDAC limitation must not disappear under network positive; human/JSON observations are sequential but held stable."
+    },
+    {
+      "id": "Q07",
+      "name": "Benign ECC configuration success across two accusations",
+      "kind": "command substitution, no real EDAC event",
+      "accusations": "kernel-scream,memrot",
+      "mechanism": "Return independently sourced informational ECC-enable success line through dmesg fixture while EDAC remains absent.",
+      "independent_proof": "Exact wrapper bytes/hash; tagged Linux v6.5 success-path provenance; actual guest EDAC and real log retained separately.",
+      "allowable": "K CLEAR on complete benign fixture output; M UNKNOWN for absent EDAC. Neither classifier may call capability success an integrity error.",
+      "clear_eligibility": "K fixture-qualified eligible only; exclude from real-kernel-only useful-exoneration denominator. M ineligible.",
+      "novelty": "Different actual informational configuration message, selected K/M pair and human envelope comparison; previous controller-registration text not reused.",
+      "receipt_and_limits": "Explicit substitution scope and authenticity limits; unsupported attribution F1."
+    },
+    {
+      "id": "Q08",
+      "name": "Actual read-only mount despite unavailable root usage command",
+      "kind": "real guest filesystem condition plus command substitution",
+      "accusations": "kernel-scream,silent-killer",
+      "mechanism": "Make a dedicated ext4 filesystem read-only; df wrapper fails only for root target and executes genuine df for all other targets.",
+      "independent_proof": "Actual mountinfo read-only source has no writable view, independent write fails EROFS; genuine root statfs ample, exact wrapper bytes prove root command failure.",
+      "allowable": "S DEGRADED from actual read-only mount; required root fs-usage remains partial/unavailable. K CLEAR if actual log contains no serious event.",
+      "clear_eligibility": "K eligible based on real kernel log; S ineligible.",
+      "novelty": "New filesystem positive precedence with dimension/target-specific unavailable evidence; not prior malformed-df healthy case.",
+      "receipt_and_limits": "JSON and human must preserve source failure even while positive S verdict is justified; intentional RO wording/caveat retained."
+    },
+    {
+      "id": "Q09",
+      "name": "Actual receive drops plus unrelated informational initialization",
+      "kind": "real guest sampled degradation plus command substitution",
+      "accusations": "memrot,network-choke-point",
+      "mechanism": "Generate real TUN receive rejections while substituting benign ECC configuration-success log; EDAC absent.",
+      "independent_proof": "Independent50ms sysfs counter trace and monotonic phase ledger establish increase strictly within possible Alibi sample interval; exact benign fixture source preserved.",
+      "allowable": "N DEGRADED from actual same-object sampled drops; M UNKNOWN. No memory-integrity attribution from initialization text.",
+      "clear_eligibility": "Neither selected accusation CLEAR-eligible; failed real delta overlap is F7, not positive-precedence success.",
+      "novelty": "New compound shared-log semantics with real network degradation and unrelated unavailable memory evidence; no denied counter and no failed veth induction.",
+      "receipt_and_limits": "Track stdout/stderr/status/resource and exact receipt even though invocation is env-wrapped; no active probe by product."
+    },
+    {
+      "id": "Q10",
+      "name": "Same identity with contradictory cumulative-counter history",
+      "kind": "guest evidence substitution with concurrent content mutation",
+      "accusations": "network-choke-point",
+      "mechanism": "Bind a guest-owned file over rx_dropped with value25, mutate it to0 during sample; preserve actual interface ifindex throughout.",
+      "independent_proof": "Same namespace initial25 and after0 reads, timestamped write interval strictly inside actual sampling; outside real counter and netlink identity independently preserved.",
+      "allowable": "N UNKNOWN without another valid positive. A decreased cumulative counter cannot justify zero observed delta or wraparound-positive arithmetic.",
+      "clear_eligibility": "N ineligible because the acquired interval is inconsistent despite valid individual integers.",
+      "novelty": "Different from object replacement: identity remains same and valid, but a source history contradicts cumulative-delta assumptions.",
+      "receipt_and_limits": "Label as substitution, not actual driver reset; absent overlap proof F7. Receipt must retain the counter limitation."
+    }
+  ],
+  "execution": {
+    "script": {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/guest-sealed.sh",
+      "sha256": "4cfee6627a702158bbf762fdda385e65ebd372aa0a03dc7a2a94cfcb55849acd"
+    },
+    "provenance": {
+      "path": "/data/git/alibi-qualification-evidence-20261011/guest-lab/requalification-20261011/holdouts/PROVENANCE.md",
+      "sha256": "e6373ab4e3c2ae84e0585fab5f3643d8bf7fb4dc3a990f400817ca750c653d5a"
+    },
+    "fresh_guest_each": true,
+    "case_ids": [
+      "Q01",
+      "Q02",
+      "Q03",
+      "Q04",
+      "Q05",
+      "Q06",
+      "Q07",
+      "Q08",
+      "Q09",
+      "Q10"
+    ],
+    "memory_mib": 512,
+    "isolated_nics": 1,
+    "tools": [
+      "GNU ip,df,stat,dd,dmesg,timeout",
+      "nft",
+      "setpriv",
+      "unshare",
+      "mke2fs",
+      "losetup",
+      "Bash",
+      "existing /bin/tun-drop-fixture and lab_run helper"
+    ],
+    "modules": [
+      "veth",
+      "libcrc32c",
+      "nf_defrag_ipv4",
+      "nf_defrag_ipv6",
+      "nf_conntrack",
+      "nfnetlink",
+      "nf_tables",
+      "nft_ct"
+    ],
+    "shared_authority": "Root owns all allocations/builds/launches. Existing one-guest serial execution, no external network or host shares/block devices. All mutation guarded to disposable guest."
+  },
+  "oracle_rules": {
+    "baseline": "Capture actual fresh guest baseline for every occurrence; K/S/N clear eligibility conditional on independently adequate observed evidence; M normally UNKNOWN absent EDAC. Baseline failure does not become automatic fault attribution.",
+    "temporal": "Bound process origin between outer capture start and outer end minus receipt complete duration; use source-relative sample window to compute guaranteed common interior. Require actor interval or at least two independent delta samples inside with clock-resolution margin. If no common overlap proven, mark temporal claim F7. Never use an Alibi-reported positive as independent induction proof.",
+    "source_scope": "Required evidence failure rules apply per accusation. Positive from independent valid source can support DEGRADED while another required source fails, but receipt must preserve limitation. CLEAR eligible only when all required evidence adequate and no named positive.",
+    "metrics": "Count unique scenarios, attempts, primary selected findings, and per-boot controls separately. Primary Qxx JSON plus paired Qxx-human; generator/trace captures are independent observations, not Alibi invocations. Useful exoneration numerator correctCLEAR over independently eligible denominator, reported separately for real-source and substitution cases. UNKNOWN on independently eligible case reduces usefulness; zero denominator N/A. Include all F7 and historical occurrences, never fabricate PASS.",
+    "presentation": "JSON and default-human outputs must both disclose planned source identities, required/supporting roles, status/completeness, acquisition methods/limitations and sampling bounds sufficiently to preserve envelope. Paired runs sequential, stable-state proof required; exact timestamps need not match.",
+    "extra_events": "Unexpected additional real named positives require raw-evidence adjudication and cannot be ignored to force expected table. If adequate negative evidence cannot be established, eligibility unresolved rather than inferred from CLEAR."
+  },
+  "formalization": {
+    "decision_owner": "oracle_design",
+    "propositions": [
+      "Endpoint counter subtraction requires same counted object and consistent cumulative history",
+      "State change alone is not named fault and does not negate unchanged object identity",
+      "Evidence limitations survive positive aggregation and human rendering",
+      "Capability initialization is not integrity-error attribution"
+    ],
+    "method": "Finite conditional oracle, monotonic interval bounds, independent kernel object IDs/counter reads, exact source-template provenance and receipt algebra. No new runtime/model implemented; a small future object-generation model could clarify stronger continuity but cannot prove actual guest correspondence.",
+    "limits": "Endpoint ifindex equality is not universal generation proof; arbitrary ID reuse, unobserved ABA and lossy log history not qualified. Conditional cases do not assume atomic snapshots or physical fault equivalence."
+  },
+  "custody": {
+    "owner": "oracle_design",
+    "custodian": "root",
+    "purpose": "Fresh once-only final evaluation after explicit source/executable freeze",
+    "current_dependency": "Candidate freeze and independent acceptance",
+    "retirement": "After final disclosure, replicate exact sealed inputs/provenance/results into durable custody and verify hashes; root may retire disposable guest substrate after final acceptance/recovery dependencies end. Review2026-10-18 or campaign closeout, whichever first.",
+    "expected_owned_allocation_bytes": "under100KiB; no builds/VMs/downloads/credentials created"
+  },
+  "freeze_rule": "Do not disclose cases or expectations to root or implementation before explicit freeze. After final evaluation no product tuning against this set; changes require a separated acceptance boundary."
+}
