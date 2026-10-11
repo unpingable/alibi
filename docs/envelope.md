@@ -28,7 +28,8 @@ positive evidence, but its absence does not block `CLEAR`.
 - Linux only. Facts come from `/proc`, `/sys`, and a small set of standard
   tools (`dmesg`, `journalctl`, `df`).
 - No systemd is required, but the kernel-log fallback prefers it: Alibi tries
-  `dmesg` first, then `journalctl -k -b --no-pager --quiet`. On non-systemd
+  `dmesg --raw --force-prefix` first, then
+  `journalctl -k -b --no-pager --quiet -o short-monotonic --no-hostname --all`. On non-systemd
   hosts without dmesg access, kernel-log evidence is unavailable and the
   affected accusations report `UNKNOWN`.
 - The network evidence window is a bounded counter sample whose actual monotonic
@@ -100,3 +101,21 @@ Its `mtti_ms` is numeric only when every finding is `CLEAR` or
 when all collection and evaluation finished, before receipt construction and
 excluding serialization/output. See [design.md](design.md) §4 for the normative
 semantics.
+
+## Acquisition limits
+
+Commands must finish and close both output streams within their acquisition
+deadline. Each stream is limited to 8 MiB; a cap, read failure, timeout or invalid
+UTF-8 produces inadequate evidence, never a complete negative result from the
+retained prefix. Transport failures currently discard that command's output,
+including any positive prefix. Structured log records survive malformed
+neighboring records as partial evidence. Selected log formats require supported
+command options; unsupported formats fall back or produce UNKNOWN.
+
+Numeric log framing validates representation only. It cannot authenticate a
+substituted command, detect all valid-looking corruption, establish freshness,
+or recover overwritten history. Complete acquisition means the currently
+retained requested output was acquired without known loss, not a complete boot
+history. Cleanup uses the command's dedicated process group and a separate
+100 ms polling allowance; inability to reap is explicitly reported. Kernel
+scheduling and uninterruptible waits prevent a universal elapsed-time bound.

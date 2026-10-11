@@ -7,84 +7,235 @@ pub struct KernelLog {
     pub method: String,
 }
 
+const DMESG_ARGS: &[&str] = &["--raw", "--force-prefix"];
+const DMESG_METHOD: &str = "dmesg --raw --force-prefix";
+const JOURNAL_ARGS: &[&str] = &[
+    "-k",
+    "-b",
+    "--no-pager",
+    "--quiet",
+    "-o",
+    "short-monotonic",
+    "--no-hostname",
+    "--all",
+];
+const JOURNAL_METHOD: &str =
+    "journalctl -k -b --no-pager --quiet -o short-monotonic --no-hostname --all";
+
 pub fn collect() -> Source<KernelLog> {
     let start = Instant::now();
-    let dmesg_error = match run_command("dmesg", &[], Duration::from_secs(3)) {
-        Ok(out) if usable_lines(&out, false).is_some() => {
-            return Source::ok(
-                KernelLog {
-                    lines: usable_lines(&out, false).expect("checked above"),
-                    method: "dmesg".to_string(),
-                },
-                "dmesg",
-                start.elapsed(),
-            );
-        }
-        Ok(_) => "dmesg produced no log lines".to_string(),
+    let dmesg_error = match run_command("dmesg", DMESG_ARGS, Duration::from_secs(3)) {
+        Ok(out) => match parse_output(&out, false, DMESG_METHOD, start.elapsed()) {
+            Ok(source) => return source,
+            Err(error) => error,
+        },
         Err(error) => error,
     };
-
-    match run_command(
-        "journalctl",
-        &["-k", "-b", "--no-pager", "--quiet"],
-        Duration::from_secs(5),
-    ) {
-        Ok(out) if usable_lines(&out, true).is_some() => {
-            let method = "journalctl -k -b --no-pager --quiet";
-            Source::ok(
-                KernelLog {
-                    lines: usable_lines(&out, true).expect("checked above"),
-                    method: method.to_string(),
-                },
-                method,
+    match run_command("journalctl", JOURNAL_ARGS, Duration::from_secs(5)) {
+        Ok(out) => match parse_output(&out, true, JOURNAL_METHOD, start.elapsed()) {
+            Ok(mut source) => {
+                let fallback_detail = format!(
+                    "dmesg acquisition failed: {}; used journal fallback",
+                    dmesg_error
+                );
+                source.detail = Some(match source.detail.take() {
+                    Some(detail) => format!("{}; {}", detail, fallback_detail),
+                    None => fallback_detail,
+                });
+                source
+            }
+            Err(error) => Source::failed(
+                Status::Malformed,
+                format!("{}; {}", dmesg_error, error),
                 start.elapsed(),
-            )
-        }
-        Ok(_) => Source::failed(
-            Status::Malformed,
-            format!("{}; journalctl produced no log lines", dmesg_error),
-            start.elapsed(),
-        ),
-        Err(journal_error) => Source::failed(
+            ),
+        },
+        Err(error) => Source::failed(
             Status::Unavailable,
-            format!("{}; {}", dmesg_error, journal_error),
+            format!("{}; {}", dmesg_error, error),
             start.elapsed(),
         ),
     }
 }
 
-fn usable_lines(output: &str, journal: bool) -> Option<Vec<String>> {
-    let lines: Vec<String> = output
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .map(str::to_string)
-        .collect();
-    if lines.is_empty() || (journal && lines.iter().all(|line| line.trim() == "-- No entries --")) {
-        None
-    } else {
-        Some(lines)
+// These checks establish the requested command representation, not provenance,
+// freshness, or complete since-boot retention. Message bodies remain opaque.
+fn parse_output(
+    output: &str,
+    journal: bool,
+    method: &str,
+    elapsed: Duration,
+) -> Result<Source<KernelLog>, String> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut malformed = 0;
+    let mut continuation_indent = None;
+    for record in output.split_inclusive('\n') {
+        let line = record.trim_end_matches('\n');
+        if record.ends_with('\n') && valid_record(line, journal) {
+            continuation_indent =
+                journal.then(|| line.find(": ").expect("validated identifier") + 2);
+            lines.push(line.to_string());
+        } else if record.ends_with('\n')
+            && !line.chars().any(|c| c.is_control() && c != '\t')
+            && continuation_indent.is_some_and(|indent| {
+                line.as_bytes()
+                    .get(..indent)
+                    .is_some_and(|prefix| prefix.iter().all(|b| *b == b' '))
+            })
+        {
+            // short-monotonic aligns continuation lines with the message
+            // column. Treat them as part of their framed predecessor, not
+            // as separate records or as proof of message provenance.
+            let previous = lines
+                .last_mut()
+                .expect("continuation has framed predecessor");
+            previous.push('\n');
+            previous.push_str(line);
+        } else {
+            malformed += 1;
+            continuation_indent = None;
+        }
     }
+    if lines.is_empty() {
+        return Err(format!(
+            "{}: no complete records in requested log representation ({} invalid records)",
+            method, malformed
+        ));
+    }
+    let log = KernelLog {
+        lines,
+        method: method.to_string(),
+    };
+    if malformed == 0 {
+        Ok(Source::ok(log, method, elapsed))
+    } else {
+        Ok(Source::partial(log, Status::Malformed,
+            format!("{} record(s) do not match requested log representation; retained valid records only", malformed),
+            method, elapsed))
+    }
+}
+
+fn valid_record(record: &str, journal: bool) -> bool {
+    if record.chars().any(|c| c.is_control() && c != '\t') {
+        return false;
+    }
+    let framed = if journal {
+        record
+    } else {
+        let Some((priority, rest)) = record.strip_prefix('<').and_then(|s| s.split_once('>'))
+        else {
+            return false;
+        };
+        if priority.is_empty()
+            || !priority.bytes().all(|b| b.is_ascii_digit())
+            || priority.parse::<u16>().map_or(true, |n| n > 191)
+        {
+            return false;
+        }
+        rest
+    };
+    let Some((timestamp, body)) = framed.strip_prefix('[').and_then(|s| s.split_once(']')) else {
+        return false;
+    };
+    let Some((seconds, fraction)) = timestamp.trim().split_once('.') else {
+        return false;
+    };
+    if seconds.is_empty()
+        || !seconds.bytes().all(|b| b.is_ascii_digit())
+        || fraction.is_empty()
+        || !fraction.bytes().all(|b| b.is_ascii_digit())
+    {
+        return false;
+    }
+    let Some(body) = body.strip_prefix(' ') else {
+        return false;
+    };
+    if journal {
+        // Early userspace records written through kmsg may carry e.g.
+        // systemd[1], even under journalctl -k. Validate the selected framing,
+        // not an invented requirement that every identifier is "kernel".
+        let Some((identifier, _message)) = body.split_once(": ") else {
+            return false;
+        };
+        if identifier.is_empty() || identifier.chars().any(char::is_whitespace) {
+            return false;
+        }
+    }
+    // Empty messages are legal within an explicit complete frame.
+    true
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collect::Completeness;
 
     #[test]
-    fn empty_output_is_not_usable_evidence() {
-        assert!(usable_lines("\n  \n", false).is_none());
+    fn explicit_representations_accept_benign_records() {
+        for (text, journal) in [
+            ("<6>[    0.000000] Linux version test\n", false),
+            ("[    0.000000] kernel: Linux version test\n", true),
+            (
+                "[   13.949319] systemd[1]: Detected architecture x86-64.\n",
+                true,
+            ),
+        ] {
+            let source = parse_output(text, journal, "fixture", Duration::ZERO).unwrap();
+            assert!(source.is_complete());
+            assert_eq!(source.get().unwrap().lines.len(), 1);
+        }
     }
 
     #[test]
-    fn journal_no_entries_sentinel_is_not_usable_evidence() {
-        assert!(usable_lines("-- No entries --\n", true).is_none());
+    fn nonlog_empty_invalid_and_truncated_records_are_inadequate() {
+        for text in [
+            "",
+            "\n",
+            "not a kernel log\n",
+            "-- No entries --\n",
+            "<x>[    0.000000] message\n",
+            "<192>[    0.000000] message\n",
+            "<6>[now] message\n",
+            "<6>[    0.000000]missing separator\n",
+            "<6>[    0.000000] message",
+        ] {
+            assert!(
+                parse_output(text, false, "fixture", Duration::ZERO).is_err(),
+                "{text:?}"
+            );
+        }
     }
 
     #[test]
-    fn real_log_lines_are_retained() {
+    fn journal_empty_and_aligned_multiline_messages_are_complete() {
+        let output = "[   14.874158] kernel: \n[25385.444274] kernel: first line\n                        continuation\n";
+        let source = parse_output(output, true, "fixture", Duration::ZERO).unwrap();
+        assert!(source.is_complete());
+        assert_eq!(source.get().unwrap().lines.len(), 2);
+        assert!(source.get().unwrap().lines[1].contains("continuation"));
+        assert!(parse_output(
+            "                        continuation\n",
+            true,
+            "fixture",
+            Duration::ZERO
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn valid_positive_record_survives_malformed_neighbor_as_partial() {
+        let source = parse_output(
+            "<3>[    1.000000] Oops: example\ninvalid record\n",
+            false,
+            "fixture",
+            Duration::ZERO,
+        )
+        .unwrap();
+        assert_eq!(source.completeness, Completeness::Partial);
+        assert_eq!(source.status, Status::Malformed);
         assert_eq!(
-            usable_lines("kernel: booted\n", true),
-            Some(vec!["kernel: booted".to_string()])
+            source.get().unwrap().lines,
+            vec!["<3>[    1.000000] Oops: example"]
         );
     }
 }

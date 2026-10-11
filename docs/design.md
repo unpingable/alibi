@@ -120,13 +120,25 @@ Each finding separately records its source names and their required or supportin
 roles. Alibi never says "this machine is healthy"; it says "within this explicitly
 described envelope, no evidence supports these named accusations."
 
-Kernel-log acquisition: try `dmesg`, fall back to
-`journalctl -k -b --no-pager --quiet`,
-else `unavailable` (e.g. `kernel.dmesg_restrict=1` and no journal access — common
-for unprivileged users; run with sufficient privilege for a full envelope). Every
-external command runs under a hard timeout. The whole interrogation stays
-interactive-scale; the two-second network delta window is paid only when
-`network-choke-point` is selected.
+Kernel-log acquisition requests `dmesg --raw --force-prefix`,
+then `journalctl -k -b --no-pager --quiet -o short-monotonic --no-hostname --all`.
+Unsupported options or unavailable commands are collection failures. Successful
+command stdout must be valid UTF-8. Log records must have the selected numeric
+priority/timestamp framing (dmesg) or monotonic timestamp/identifier
+(journal), with a complete final newline. Malformed neighboring records make a
+source partial while valid records remain available for positive evidence.
+These checks validate representation, not provenance, freshness, or complete
+since-boot retention; a substituted command can imitate valid framing.
+
+Each external command has an acquisition deadline covering child exit and both
+output streams, with an 8 MiB limit per stream. Timeout, read, encoding and cap
+failures discard command output and cannot become complete evidence. The
+collector uses nonblocking streams without reader threads. Failure signals only
+the dedicated child process group while its leader identity is unreaped, then
+allows at most 100 ms of userspace cleanup polling. Failure to reap is reported;
+this is not proof that every descendant retired. Scheduling, spawn, and kernel
+uninterruptible waits prevent a universal wall-clock guarantee. The two-second
+network delta window is paid only when `network-choke-point` is selected.
 
 ## 6. Failure classes (V0)
 
