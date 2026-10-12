@@ -4,16 +4,16 @@
 
 Alibi is an on-demand, read-only Linux diagnostic CLI. It evaluates four named accusations and explains each verdict. It does not monitor continuously, remediate, send active network probes or manage other hosts.
 
-**Experimental v0.1 release candidate: `QUALIFIED_WITH_LIMITATIONS`.** The repaired candidate has independent Linux guest qualification. It is ready for bounded experimentation, not a claim that every Linux environment is supported or that a CLEAR host is healthy. Reduced operator diagnostic time has **not** been established.
+**Published experimental release: [v0.1.0](https://github.com/unpingable/alibi/releases/tag/v0.1.0), historically `QUALIFIED_WITH_LIMITATIONS`.** Current development is **0.1.1-rc.1, not published**. Its newer source and binaries do not inherit the original exact-binary qualification. CLEAR never means whole-host health, and reduced operator diagnostic time has not been established.
 
 ## Install and try it
 
-Linux x86_64 with a GNU runtime is the supported implementation target. The prepared binary archive requires **glibc 2.39 or newer** and `libgcc_s.so.1`; it is dynamically linked. Release assets await publication approval. Private-repository users can obtain a rebuilt archive from a successful release-branch GitHub Actions run. Its `SOURCE.json` distinguishes a CI rebuild from the exact guest-tested executable.
+The published v0.1.0 archive needs **x86-64 Linux, glibc 2.39+ and libgcc_s**. Ubuntu 22.04 and Debian 12 users can build that release from source or try the separately identified **glibc 2.31-baseline development artifact** from [CI](https://github.com/unpingable/alibi/actions/workflows/ci.yml). A development artifact is not a published release or a universal Linux qualification.
 
-See [archive installation](docs/release-v0.1/INSTALL.md), including checksum verification and runtime dependencies. To build from the release candidate instead:
+See [installation instructions](docs/install.md) for checksum verification, exact-version selection and runtime requirements. To build the published release:
 
 ```sh
-git clone --branch release/v0.1.0-rc1 https://github.com/unpingable/alibi.git
+git clone --branch v0.1.0 https://github.com/unpingable/alibi.git
 cd alibi
 cargo build --release --locked
 mkdir -p "$HOME/.local/bin"
@@ -68,7 +68,7 @@ For the repaired evaluated primary set: **zero false CLEARs across 72 findings**
 
 The full campaign environment was QEMU x86_64, Linux **6.5.0-44-generic**, with constructed GNU/Dash/BusyBox userspace. **6.8.0-90-generic** covers only the acquisition subset, not a second fully qualified distribution. Real hardware EDAC exoneration, resource starvation, stalled storage, general service functionality and some precisely ordered races remain unqualified. The original H03/G30/G36 gaps and fresh Q04 subclaim remain visible.
 
-Read the [current qualification](docs/requalification-20261011/QUALIFICATION.md), [results](docs/requalification-20261011/RESULTS.md), [independent acceptance and correction](docs/requalification-20261011/ACCEPTANCE-CORRECTION.md), and [release notes](docs/release-v0.1/RELEASE-NOTES.md). Historical records and replay scripts remain in the repository; large VM/build artifacts and raw local host evidence are not committed. [Evidence availability](docs/release-v0.1/EVIDENCE.md) explains what is independently reproducible from this checkout and what remains in local custody.
+Read the [historical v0.1.0 qualification](docs/requalification-20261011/QUALIFICATION.md), [results](docs/requalification-20261011/RESULTS.md), [independent acceptance and correction](docs/requalification-20261011/ACCEPTANCE-CORRECTION.md), and [release notes](docs/release-v0.1/RELEASE-NOTES.md). Historical records and replay scripts remain in the repository; large VM/build artifacts and raw local host evidence are not committed. [Evidence availability](docs/release-v0.1/EVIDENCE.md) explains what is independently reproducible from this checkout and what remains in local custody.
 
 ## Feedback from actual use
 
@@ -103,3 +103,5 @@ the symptom. Default human output places CLEAR boundaries next to findings and
 explains unavailable, unsupported, invalid/inconsistent or incomplete evidence
 for UNKNOWN. Read the exact source detail: a rerun cannot recover lost history.
 No automatic root recommendation is made. JSON Receipt V2 remains unchanged.
+
+For field trials, use the [external-tester protocol](docs/field-testing.md). See the [next candidate notes](docs/release-v0.1.1/RELEASE-NOTES.md) for unpublished changes and evidence limits.

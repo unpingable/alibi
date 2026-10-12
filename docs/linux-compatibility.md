@@ -1,6 +1,6 @@
 # Older GNU Linux binary
 
-The compatibility archive is `alibi-0.1.0-x86_64-unknown-linux-gnu-glibc2.31.tar.gz`.
+The compatibility archive is `alibi-0.1.1-rc.1-x86_64-unknown-linux-gnu-glibc2.31.tar.gz`.
 It targets x86-64 Linux with glibc 2.31 or newer, libgcc_s and the standard GNU
 loader. It is dynamically linked. Ubuntu 22.04 and Debian 12 meet that runtime
 baseline; this is not universal distribution or kernel qualification.
@@ -11,12 +11,12 @@ glibc 2.39+. Until separately published, the compatibility build is a CI artifac
 
 ```sh
 sha256sum --check SHA256SUMS
-tar -xzf alibi-0.1.0-x86_64-unknown-linux-gnu-glibc2.31.tar.gz
-cd alibi-0.1.0-x86_64-unknown-linux-gnu-glibc2.31
+tar -xzf alibi-0.1.1-rc.1-x86_64-unknown-linux-gnu-glibc2.31.tar.gz
+cd alibi-0.1.1-rc.1-x86_64-unknown-linux-gnu-glibc2.31
 ./alibi --version
 mkdir -p "$HOME/.local/bin"
 install -m 0755 alibi "$HOME/.local/bin/alibi"
-alibi check
+"$HOME/.local/bin/alibi" check
 ```
 
 Start unprivileged. Missing evidence may yield UNKNOWN; access to every source
@@ -56,3 +56,19 @@ inspection, pinned inputs and runtime checks suffice for this bounded packaging
 change; a formal model would not establish loader behavior on untested systems.
 No universal compatibility or transfer of exact-binary qualification is inferred.
 Local custody: `alibi-portability-20261012`; raw host receipts are not public.
+
+## Native glibc 2.31 runtime observation
+
+Both retained compatibility and guidance CI archives were extracted and invoked
+in the pinned Debian 11 runtime without newer libraries mounted. Version/help,
+human and JSON commands completed; getconf reported glibc 2.31, and loader --list
+resolved dependencies inside that Debian runtime. Independent review accepted
+this bounded observation. The read-only container correctly exposed evidence
+restrictions; it shares the host kernel and does not qualify Debian kernels.
+
+The first harness attempt used an unsupported loader --version option and
+stopped before invocation. That record is preserved; the corrected check uses
+ldd for version and the loader's --list interface. Current CI repeats the check
+on the exact new archive with scripts/check-glibc231.sh and uploads its runtime
+records separately. A future publication must inspect that candidate's exact
+records; the older binary test is not a blanket guarantee for successors.
