@@ -1,6 +1,6 @@
 {
   "tool": "alibi",
-  "version": "0.1.0",
+  "version": "0.1.1-rc.1",
   "receipt_version": 2,
   "host": "golden-host",
   "started_at": "2025-09-04T15:33:20Z",

@@ -1,7 +1,8 @@
 # Agent guide
 
 Alibi is a small, read-only Linux host interrogation CLI. Rust, zero external
-crates, standard library only, single static binary. Keep it that way.
+crates, standard library only, one standalone executable. Published GNU builds are dynamically linked;
+do not claim static linkage without verifying it.
 
 ## Quick start
 
@@ -48,7 +49,7 @@ Never claim tests pass without running them.
 4. **Receipt contract changes are deliberate.** If
    `tests/receipt_golden.rs` fails, the contract changed. Bump
    `RECEIPT_VERSION` for breaking changes and regenerate the golden only via
-   `ALIBI_UPDATE_GOLDEN=1 cargo test receipt_v1_matches_golden`, reviewed as
+   `ALIBI_UPDATE_GOLDEN=1 cargo test receipt_v2_matches_golden`, reviewed as
    its own diff.
 5. Verdict logic never parses; parsing never verdicts. Evaluators stay pure
    functions over `Facts` and fixture-testable without host access.
