@@ -15,7 +15,7 @@ usage:
 
 accusations: kernel-scream, silent-killer, memrot, network-choke-point
 
-exit codes: 0 innocence established · 1 degraded · 2 unknown · 64 usage
+exit codes: 0 selected accusations CLEAR/NOT_APPLICABLE · 1 degraded · 2 unknown · 64 usage
 ";
 
 fn main() -> ExitCode {

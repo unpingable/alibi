@@ -87,8 +87,9 @@ UNKNOWN: interface facts, route tables, or the kernel log could not be
   collected, or conntrack is present but unreadable or malformed. Losing
   access to evidence reduces what can be excluded; it never clears.
 NOT_APPLICABLE: no non-loopback interface exists on this host.
-limitations: passive local evidence only — V0 runs no active probes; a
-  successful or failed ping proves nothing about host state. Down/unused
+limitations: passive local evidence only — V0 runs no active probes and
+  does not establish DNS or endpoint reachability. A separate probe is a
+  different observation, not a substitute for required local evidence. Down/unused
   interfaces are recorded as evidence, not accusations.
 ";
 

@@ -7,8 +7,8 @@ receipt, and before sharing one.
 ## The core semantic statement
 
 > `CLEAR` means that within the explicitly recorded interrogation envelope,
-> Alibi found no evidence supporting that named accusation. It does not mean
-> the machine is universally healthy.
+> Alibi obtained sufficient applicable evidence to exonerate that specific,
+> bounded accusation. It does not mean the machine is universally healthy.
 
 `CLEAR` is bounded exoneration, not health attestation. Every receipt records
 its own envelope — evidence-source roles and completeness, acquisition methods,
@@ -25,7 +25,8 @@ positive evidence, but its absence does not block `CLEAR`.
 
 Default human output includes the collected source envelope and per-finding source
 roles, including failures when other evidence already establishes DEGRADED.
-`--verbose` adds expanded evidence and indications. JSON Receipt V2 is unchanged.
+All DEGRADED indications are visible by default; `--verbose` adds expanded
+evidence. UNKNOWN retains its evidence details by default. JSON Receipt V2 is unchanged.
 
 ## Platform assumptions
 
