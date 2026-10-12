@@ -1,0 +1,96 @@
+{
+  "tool": "alibi",
+  "version": "0.1.1-rc.1",
+  "receipt_version": 2,
+  "host": "temporal-fixture",
+  "started_at": "2024-09-09T22:13:20Z",
+  "decision_latency_ms": 0,
+  "mtti_ms": null,
+  "interrogation_complete_ms": 2200,
+  "innocence_established": true,
+  "verdict": "CLEAR",
+  "findings": [
+    {
+      "accusation": "network-choke-point",
+      "verdict": "CLEAR",
+      "summary": "no host-local network pathology observed",
+      "indications": [],
+      "evidence": [
+        "eno1: operstate=up carrier physical; rx packets +0, tx packets +0 in 2s window",
+        "default route present (IPv4)",
+        "conntrack table 0/100 (0% of max)"
+      ],
+      "skipped": [],
+      "sources": [
+        {
+          "name": "net",
+          "role": "required"
+        },
+        {
+          "name": "routes",
+          "role": "required"
+        },
+        {
+          "name": "conntrack",
+          "role": "required"
+        },
+        {
+          "name": "kernel-log",
+          "role": "required"
+        }
+      ],
+      "decided_at_ms": 0,
+      "innocence_at_ms": null
+    }
+  ],
+  "envelope": {
+    "boot_time": "2023-11-14T22:13:20Z",
+    "sources": [
+      {
+        "name": "kernel-log",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "deterministic fixture",
+        "elapsed_ms": 0,
+        "completed_at_ms": 0
+      },
+      {
+        "name": "net",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "deterministic fixture",
+        "elapsed_ms": 0,
+        "completed_at_ms": 0,
+        "window": {
+          "started_at_ms": 100,
+          "ended_at_ms": 2100,
+          "duration_ms": 2000
+        }
+      },
+      {
+        "name": "routes",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "deterministic fixture",
+        "elapsed_ms": 0,
+        "completed_at_ms": 0
+      },
+      {
+        "name": "conntrack",
+        "status": "ok",
+        "completeness": "complete",
+        "method": "deterministic fixture",
+        "elapsed_ms": 0,
+        "completed_at_ms": 0
+      }
+    ]
+  },
+  "semantics": {
+    "clear": "all required evidence sources were complete and no collected evidence indicates the failure class",
+    "degraded": "collected evidence contains at least one positive indication of the failure class, including retained evidence from a partial source",
+    "unknown": "no indication was found but at least one required evidence source was unavailable, unsupported, inaccessible, malformed, or incomplete; innocence was not established",
+    "decision_latency": "duration from interrogation start until every requested accusation reached a terminal verdict",
+    "mtti": "duration from interrogation start until every requested accusation was cleared or established semantically void; null when any requested accusation is degraded or unknown",
+    "interrogation_complete": "duration from interrogation start until receipt construction began after collection and evaluation completed"
+  }
+}

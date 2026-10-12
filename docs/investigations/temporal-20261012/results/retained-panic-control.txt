@@ -1,0 +1,11 @@
+ALIBI host=temporal-fixture decision=0.00s mtti=n/a complete=2.20s
+
+DEGRADED  kernel-scream        1 serious kernel/hardware log events (e.g. kernel panic)
+          decided_at_ms=0 innocence_at_ms=n/a sources: kernel-log(required)
+          indications:
+            - kernel panic: <0>[ 60.000000] Kernel panic - fixture
+
+verdict: DEGRADED (innocence not established)
+
+envelope: started_at=2024-09-09T22:13:20Z boot_time=2023-11-14T22:13:20Z
+  kernel-log status=ok completeness=complete method="deterministic fixture" elapsed_ms=0 completed_at_ms=0

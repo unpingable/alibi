@@ -1,0 +1,15 @@
+ALIBI host=temporal-fixture decision=0.00s mtti=n/a complete=2.20s
+
+DEGRADED  network-choke-point  eno1: 5 link-down events in kernel log window
+          decided_at_ms=0 innocence_at_ms=n/a sources: net(required) routes(required) conntrack(required) kernel-log(required)
+          indications:
+            - eno1: 5 link-down events in kernel log window
+
+verdict: DEGRADED (innocence not established)
+
+envelope: started_at=2024-09-09T22:13:20Z boot_time=2023-11-14T22:13:20Z
+  kernel-log status=ok completeness=complete method="deterministic fixture" elapsed_ms=0 completed_at_ms=0
+  net status=ok completeness=complete method="deterministic fixture" elapsed_ms=0 completed_at_ms=0
+    window_started_at_ms=100 window_ended_at_ms=2100 duration_ms=2000
+  routes status=ok completeness=complete method="deterministic fixture" elapsed_ms=0 completed_at_ms=0
+  conntrack status=ok completeness=complete method="deterministic fixture" elapsed_ms=0 completed_at_ms=0

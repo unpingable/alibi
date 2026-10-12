@@ -1,0 +1,13 @@
+clean-network: CLEAR
+old-flaps-300-day-boot: DEGRADED
+recent-flaps: DEGRADED
+old-fs-error-current-rw: DEGRADED
+retained-log-clean: CLEAR
+unknown-retention: CLEAR
+retained-panic-control: DEGRADED
+hung-task-not-recognized: CLEAR
+no-edac: UNKNOWN
+selected-kernel-no-edac: CLEAR
+flaps-after-log-snapshot: CLEAR
+collection-order: ["kernel-log", "net-start", "five-flaps-during-sample", "net-end", "routes", "conntrack"]
+same-fixture-log-after-sample-control: DEGRADED

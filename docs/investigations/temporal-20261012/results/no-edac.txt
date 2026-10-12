@@ -1,0 +1,15 @@
+ALIBI host=temporal-fixture decision=0.00s mtti=n/a complete=2.20s
+
+UNKNOWN   memrot               EDAC unavailable: fixture no EDAC; no recognized kernel memory-error signature matched — hardware memory integrity not established
+          decided_at_ms=0 innocence_at_ms=n/a sources: edac(required) kernel-log(required)
+          uncertainty: edac: unsupported evidence source — this environment/source is outside supported observation; repeating unchanged does not establish it
+          skipped:
+            - EDAC unavailable: fixture no EDAC
+            - required evidence incomplete: edac: fixture no EDAC
+
+verdict: UNKNOWN (innocence not established)
+
+envelope: started_at=2024-09-09T22:13:20Z boot_time=2023-11-14T22:13:20Z
+  kernel-log status=ok completeness=complete method="deterministic fixture" elapsed_ms=0 completed_at_ms=0
+  edac status=unsupported completeness=none method="unavailable" elapsed_ms=0 completed_at_ms=0
+    detail="fixture no EDAC"
