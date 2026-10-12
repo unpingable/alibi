@@ -165,7 +165,7 @@ impl Evaluator for NetworkChokePoint {
                             .count();
                         if flaps >= 3 {
                             finding.indications.push(format!(
-                                "{}: {} link-down events in kernel log window",
+                                "{}: {} link-down events in retained kernel log (event ages not bounded; not a current flap rate)",
                                 iface.name, flaps
                             ));
                         }
@@ -173,7 +173,9 @@ impl Evaluator for NetworkChokePoint {
                 }
                 let (matches, _) = patterns::matches_for(&log.lines, self.accusation());
                 for (line, label) in matches {
-                    finding.indications.push(format!("{}: {}", label, line));
+                    finding
+                        .indications
+                        .push(format!("retained kernel-log report: {}: {}", label, line));
                 }
             }
             None => {

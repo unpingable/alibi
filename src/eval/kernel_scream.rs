@@ -27,7 +27,9 @@ impl Evaluator for KernelScream {
                     if first_label.is_empty() {
                         first_label = label;
                     }
-                    finding.indications.push(format!("{}: {}", label, line));
+                    finding
+                        .indications
+                        .push(format!("retained kernel-log report: {}: {}", label, line));
                 }
                 if finding.indications.is_empty() {
                     finding.evidence.push(format!(
@@ -48,9 +50,11 @@ impl Evaluator for KernelScream {
         }
         finding.verdict = base_verdict(&finding.indications, &required_failures);
         finding.summary = match finding.verdict {
-            Verdict::Clear => "no serious kernel/hardware events found".to_string(),
+            Verdict::Clear => {
+                "no recognized serious-event patterns in acquired retained kernel log".to_string()
+            }
             Verdict::Degraded => format!(
-                "{} serious kernel/hardware log events (e.g. {})",
+                "{} recognized serious events in acquired retained kernel log (e.g. {})",
                 total, first_label
             ),
             Verdict::Unknown => format!(
@@ -97,7 +101,10 @@ mod tests {
     fn clear_on_clean_fixture() {
         let finding = KernelScream.evaluate(&fixtures::clean_facts());
         assert_eq!(finding.verdict, Verdict::Clear);
-        assert_eq!(finding.summary, "no serious kernel/hardware events found");
+        assert_eq!(
+            finding.summary,
+            "no recognized serious-event patterns in acquired retained kernel log"
+        );
         assert!(!finding.evidence.is_empty());
     }
 

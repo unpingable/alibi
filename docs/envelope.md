@@ -167,3 +167,36 @@ does not make its continuations clean evidence.
 EDAC counters remain independent evidence; absent controllers on a VM still do not
 establish hardware memory integrity. Log representation does not authenticate its
 contents or establish complete history.
+
+## Acquisition is not historical coverage
+
+In Receipt V2, source `completeness` describes **acquisition**, not the duration
+or continuity of historical coverage. Human output labels it
+`acquisition_completeness`; JSON keeps its existing `completeness` key and values.
+Canonical kernel-log `detail`, visible in both representations even on failure,
+states the distinction and preserves any original collection-failure detail.
+
+Kernel-log collection requests retained current-boot records. A successfully
+acquired record set cannot establish what was lost before a reboot, overwritten,
+cleared, delayed, or never logged. Its earliest timestamp is not proof of a
+coverage start. Source completion times and network sample windows are not
+historical log-coverage bounds.
+
+Retained-log indications are labeled as reports. For example, five retained
+link-down events can yield DEGRADED alongside clean sampled counters; this is
+not a current flap rate. Likewise, an old filesystem report can coexist with
+writable mount observations. The report is retained evidence, not proof that the
+condition remains active or that it has recovered. No age filtering is applied.
+Mount state and EDAC counters describe their observations, not receipt-print time.
+
+On a machine without required EDAC evidence, an all-selected check cannot establish
+aggregate innocence: without any DEGRADED finding it returns UNKNOWN/exit 2 and
+null MTTI. DEGRADED takes precedence (exit 1). Selecting `kernel-scream` alone can
+still yield CLEAR/exit 0. Unsupported evidence is not necessarily permanently
+unavailable, and additional privilege does not create absent hardware evidence.
+
+Collection order is unchanged. In particular, the acquired kernel log precedes
+the network sample; it cannot establish absence of log events throughout that
+later sample. Investigation #20 remains gated on a demonstrated benefit and
+approval before changing acquisition order. No stronger temporal qualification
+is claimed by these presentation changes.
