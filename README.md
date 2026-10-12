@@ -94,3 +94,12 @@ cargo build --release --locked
 Read [design](docs/design.md), [provenance](PROVENANCE.md) and the [Apache-2.0 license](LICENSE). Alibi remains a standalone tool; possible consumers do not change its diagnostic or authority boundaries.
 
 For Ubuntu 22.04 and Debian 12, see the [older-glibc compatibility build](docs/linux-compatibility.md). Its CI artifact is separate from the unchanged v0.1.0 release binary.
+
+### Start with a symptom
+
+Run `alibi guide` to choose among the four existing accusations. It explains
+what each checks and which questions remain outside scope; it does not diagnose
+the symptom. Default human output places CLEAR boundaries next to findings and
+explains unavailable, unsupported, invalid/inconsistent or incomplete evidence
+for UNKNOWN. Read the exact source detail: a rerun cannot recover lost history.
+No automatic root recommendation is made. JSON Receipt V2 remains unchanged.

@@ -28,8 +28,11 @@ def main():
         parser.error('expected a little-endian ELF64 x86_64 binary')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     # Packaging does not silently qualify changed product source.
-    subprocess.run(['git', 'diff', '--exit-code', QUALIFIED_SOURCE, '--',
-                    'src', 'tests', 'Cargo.toml', 'Cargo.lock'], cwd=ROOT, check=True)
+    correspondence = subprocess.run(['git', 'diff', '--quiet', QUALIFIED_SOURCE, '--',
+                                     'src', 'tests', 'Cargo.toml', 'Cargo.lock'], cwd=ROOT)
+    if correspondence.returncode not in (0, 1):
+        parser.error('cannot establish source correspondence')
+    unchanged_product = correspondence.returncode == 0
     binary_sha = hashlib.sha256(binary).hexdigest()
     required_glibc = None
     if args.glibc_baseline:
@@ -42,10 +45,12 @@ def main():
             parser.error('binary exceeds glibc 2.31 baseline')
     source = dict(version='0.1.0', stage='experimental', repository='https://github.com/unpingable/alibi',
                   repository_revision=revision, qualified_product_revision=QUALIFIED_SOURCE,
+                  product_source_matches_qualified=unchanged_product,
                   binary_sha256=binary_sha, exact_guest_qualified_binary=binary_sha == QUALIFIED_BINARY,
-                  qualification='QUALIFIED_WITH_LIMITATIONS; see docs/requalification-20261011/QUALIFICATION.md',
+                  qualification=('QUALIFIED_WITH_LIMITATIONS; see docs/requalification-20261011/QUALIFICATION.md'
+                                 if unchanged_product else 'CHANGED_SOURCE; historical baseline QUALIFIED_WITH_LIMITATIONS does not qualify this build'),
                   packaging='Dynamic Linux x86_64 GNU binary. No static or universal Linux compatibility claim.',
-                  note='A CI rebuild has source correspondence; it is not the original guest-tested executable unless its hash matches.')
+                  note='Check product_source_matches_qualified and binary identity separately; this package does not establish new host qualification.')
     if args.glibc_baseline:
         source.update(compatibility_baseline='glibc 2.31', maximum_required_glibc_symbol=required_glibc,
                       note='New older-glibc build; see docs/linux-compatibility.md for its bounded runtime checks. Not the original guest-qualified binary.')

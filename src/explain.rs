@@ -91,3 +91,43 @@ limitations: passive local evidence only — V0 runs no active probes; a
   successful or failed ping proves nothing about host state. Down/unused
   interfaces are recorded as evidence, not accusations.
 ";
+
+/// Static scope descriptions, not an additional diagnostic evaluator.
+pub fn clear_boundary(accusation: &str) -> &'static str {
+    match accusation {
+        "kernel-scream" => "no recognized serious-event patterns in the acquired kernel log; excludes neither unlogged kernel faults nor lost log history",
+        "silent-killer" => "supported material mounts and acquired filesystem evidence only; does not exclude stalled I/O, every storage fault or later mount changes",
+        "memrot" => "available EDAC counters and recognized acquired log reports only; not a hardware memory test or a statement about memory pressure",
+        "network-choke-point" => "sampled local counters, routes, applicable conntrack and acquired log only; not DNS, remote-service reachability or continuous network availability",
+        _ => "selected accusation and recorded applicable evidence only; not whole-host health",
+    }
+}
+
+pub const GUIDE: &str = "\
+Choose an accusation from a symptom — this guide does not diagnose the symptom.
+
+Process disappeared, machine stalled, or suspected kernel trouble:
+  alibi check kernel-scream
+  Looks for recognized serious kernel-log events. A clear log does not rule out
+  unlogged kernel faults, application exits, resource limits or all OOM causes.
+
+Writes fail or storage seems unusable:
+  alibi check silent-killer
+  Checks supported mount state, critical space/inode levels and filesystem logs.
+  It does not establish storage latency or application correctness.
+
+Concern about reported memory integrity errors:
+  alibi check memrot
+  Checks available EDAC counters and recognized memory-error logs.
+  High RAM usage, swapping and workload pressure are not this accusation.
+
+Connections fail or the network seems intermittent:
+  alibi check network-choke-point
+  Checks bounded host-local observations. DNS, firewall policy, remote services
+  and end-to-end reachability are separate questions.
+
+Use alibi explain <accusation> for evidence requirements and exclusions.
+Use alibi check to evaluate all four; none covers every cause of a symptom.
+CLEAR requires sufficient applicable evidence for the named accusation.
+UNKNOWN is a limit on the evidence, not proof of health or proof of a fault.
+";
