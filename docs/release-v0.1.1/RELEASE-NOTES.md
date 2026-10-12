@@ -6,7 +6,8 @@ and historical QUALIFIED_WITH_LIMITATIONS decision remain unchanged.
 
 Changes since v0.1.0: older-GNU build packaging; default UNKNOWN explanations;
 CLEAR boundaries; static symptom guide; clearer installation and field-trial
-instructions. Verdict evaluators, evidence acquisition, accusation inventory,
+instructions; retained-history labels and explicit acquisition completeness in
+both receipt representations. Verdict decisions, evidence acquisition, accusation inventory,
 exit semantics and Receipt V2 schema are unchanged. The tool-version metadata
 is now 0.1.1-rc.1 so users can identify this candidate separately.
 

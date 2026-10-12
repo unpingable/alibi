@@ -87,7 +87,9 @@ impl Evaluator for SilentKiller {
             Some(log) => {
                 let (matches, _) = patterns::matches_for(&log.lines, self.accusation());
                 for (line, label) in matches {
-                    finding.indications.push(format!("{}: {}", label, line));
+                    finding
+                        .indications
+                        .push(format!("retained kernel-log report: {}: {}", label, line));
                 }
             }
             None => {
@@ -140,7 +142,7 @@ impl Evaluator for SilentKiller {
         match finding.verdict {
             Verdict::Clear => {
                 finding.summary =
-                    "mounted filesystems writable; no journal/fs errors found".to_string();
+                    "material mount observations writable; no recognized journal/fs errors in acquired retained log".to_string();
                 let rw = mounts.iter().filter(|m| m.material && !m.ro).count();
                 finding
                     .evidence
@@ -209,7 +211,7 @@ mod tests {
         assert_eq!(finding.verdict, Verdict::Clear);
         assert_eq!(
             finding.summary,
-            "mounted filesystems writable; no journal/fs errors found"
+            "material mount observations writable; no recognized journal/fs errors in acquired retained log"
         );
         assert!(!finding.evidence.is_empty());
     }

@@ -17,12 +17,14 @@ accuses: serious kernel/hardware events in the kernel log: panic, oops,
   and filesystem errors (shared with silent-killer).
 required evidence: kernel log (dmesg, falling back to journalctl -k -b).
 supporting evidence: none in V0.
-CLEAR: the kernel log was read and no serious-event patterns matched.
-DEGRADED: at least one serious kernel/hardware event was found.
+CLEAR: no recognized serious-event patterns matched in the acquired
+  retained current-boot log. This does not establish complete history.
+DEGRADED: at least one recognized serious-event report was retained.
 UNKNOWN: the kernel log could not be read (e.g. kernel.dmesg_restrict=1
   without journal access); a log you cannot read is not a quiet kernel.
 limitations: the dmesg ring buffer may be wrapped on long-uptime hosts;
-  the receipt envelope records which acquisition method was used.
+  earlier boots and lost records are not covered. Acquisition completeness
+  is not historical coverage; retained reports need not describe current state.
 ";
 
 const SILENT_KILLER: &str = "\
@@ -36,7 +38,8 @@ required evidence: /proc/self/mounts (with the root filesystem inside the
   mount model), df space/inode facts, kernel log.
 supporting evidence: none in V0.
 CLEAR: the root filesystem is a type the model reasons about, material
-  mounts are writable, no journal/fs errors, no critical space or inode
+  mount observations are writable, no recognized journal/fs errors in the
+  acquired retained kernel log, no critical space or inode
   exhaustion.
 DEGRADED: at least one positive indication; a deliberately read-only
   mount is reported with wording to that effect — the operator judges.
@@ -58,7 +61,8 @@ accuses: memory integrity failure — EDAC uncorrected errors (severe),
 required evidence: EDAC sysfs (/sys/devices/system/edac/mc/mc*/ue_count
   and ce_count), kernel log.
 supporting evidence: none in V0.
-CLEAR: EDAC counters are zero; no kernel-reported memory errors.
+CLEAR: observed EDAC counters are zero; no recognized memory-error
+  reports in the acquired retained kernel log.
 DEGRADED: uncorrected or corrected errors present, or matching log lines.
 UNKNOWN: the platform exposes no EDAC (most VMs) — the hypervisor owns
   hardware memory integrity and the guest cannot establish it.
@@ -71,7 +75,7 @@ network-choke-point — is there obvious host-local network pathology?
 
 accuses: host-local network pathology — RX/TX error or drop deltas over
   a 2 s counter sample window; >= 3 link-down events for one interface
-  in the kernel-log window; no default route in IPv4 or IPv6; conntrack
+  in the acquired retained kernel log (no age filter); no default route in IPv4 or IPv6; conntrack
   usage at or above 90% of max.
 required evidence: /sys/class/net (two samples 2 s apart), /proc/net/route
   and /proc/net/ipv6_route, the kernel log (link flaps, table-full), and
@@ -79,7 +83,8 @@ required evidence: /sys/class/net (two samples 2 s apart), /proc/net/route
 supporting evidence: none. When the conntrack subsystem is absent (its
   /proc/sys files do not exist) that failure class is not applicable; the
   finding records conntrack as not present and it does not block CLEAR.
-CLEAR: no error/drop deltas, no flap storm, a usable (non-rejecting)
+CLEAR: no error/drop deltas in the sample, fewer than 3 matched retained
+  link-down events per interface, a usable (non-rejecting)
   default route exists, and conntrack (when present) is below threshold.
 DEGRADED: at least one positive indication; counters are cumulative, so
   only bounded deltas verdict — lifetime totals never do.

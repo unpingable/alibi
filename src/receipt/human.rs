@@ -75,7 +75,7 @@ pub fn render(receipt: &Receipt, verbose: bool) -> String {
     ));
     for source in &receipt.sources {
         out.push_str(&format!(
-            "  {} status={} completeness={} method={:?} elapsed_ms={} completed_at_ms={}\n",
+            "  {} status={} acquisition_completeness={} method={:?} elapsed_ms={} completed_at_ms={}\n",
             source.name,
             source.status.as_str(),
             source.completeness.as_str(),

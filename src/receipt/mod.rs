@@ -147,13 +147,25 @@ fn source_records(facts: &Facts, plan: &CollectionPlan) -> Vec<SourceRecord> {
     records
 }
 
+// Presentation metadata only: collection status, required-source decisions and
+// observation timestamps remain exactly as supplied by the collectors.
+const KERNEL_LOG_SCOPE: &str = "completeness describes acquisition, not historical coverage; kernel-log collection requests retained current-boot records only; historical coverage, gaps and freshness are not established. Retained reports do not establish that a condition is still active. Collection completion times and sample windows are not log-history coverage.";
+
 fn record<T>(id: SourceId, source: &Source<T>) -> SourceRecord {
+    let detail = if id == SourceId::KernelLog {
+        Some(match &source.detail {
+            Some(detail) => format!("{}; {}", detail, KERNEL_LOG_SCOPE),
+            None => KERNEL_LOG_SCOPE.to_string(),
+        })
+    } else {
+        source.detail.clone()
+    };
     SourceRecord {
         name: id.as_str(),
         status: source.status,
         completeness: source.completeness,
         method: source.method.clone(),
-        detail: source.detail.clone(),
+        detail,
         elapsed: source.elapsed,
         completed_at: source.completed_at,
         window: source.window,
@@ -163,6 +175,7 @@ fn record<T>(id: SourceId, source: &Source<T>) -> SourceRecord {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collect::Status;
     use crate::eval::{fixtures, SourceRole};
 
     fn finding(accusation: &'static str, verdict: Verdict, ttv_ms: u64) -> Finding {
@@ -251,5 +264,86 @@ mod tests {
         let records = source_records(&facts, &plan);
         let names: Vec<_> = records.iter().map(|record| record.name).collect();
         assert_eq!(names, vec!["net", "routes"]);
+    }
+
+    #[test]
+    fn temporal_scope_survives_both_renderers_and_source_failure_details() {
+        use crate::collect::KernelLog;
+        use crate::eval::kernel_scream::KernelScream;
+        use crate::eval::Evaluator;
+        for (status, completeness, expected) in [
+            (Status::Ok, Completeness::Complete, Verdict::Clear),
+            (Status::Malformed, Completeness::Partial, Verdict::Unknown),
+            (Status::Unavailable, Completeness::None, Verdict::Unknown),
+            (Status::Unsupported, Completeness::None, Verdict::Unknown),
+        ] {
+            let mut facts = fixtures::clean_facts();
+            facts.kernel_log.status = status;
+            facts.kernel_log.completeness = completeness;
+            facts.kernel_log.detail = Some("original acquisition detail".into());
+            facts.kernel_log.value = (completeness != Completeness::None).then(|| KernelLog {
+                lines: vec!["<6>[ 900.000000] retained quiet record".into()],
+                method: "fixture".into(),
+            });
+            let finding = KernelScream.evaluate(&facts);
+            assert_eq!(finding.verdict, expected);
+            let plan = CollectionPlan::new(vec![SourceId::KernelLog]);
+            let r = build(&facts, vec![finding], UNIX_EPOCH, Duration::ZERO, &plan);
+            assert_eq!(r.verdict, expected);
+            assert_eq!(r.sources[0].status, status);
+            assert_eq!(r.sources[0].completeness, completeness);
+            assert_eq!(r.sources[0].completed_at, facts.kernel_log.completed_at);
+            assert!(r.sources[0].window.is_none());
+            for output in [human::render(&r, false), json::render(&r)] {
+                for text in [
+                    "original acquisition detail",
+                    "completeness describes acquisition, not historical coverage",
+                    "retained current-boot records only",
+                    "historical coverage, gaps and freshness are not established",
+                    "not log-history coverage",
+                ] {
+                    assert!(output.contains(text), "missing {text}: {output}");
+                }
+            }
+            assert!(human::render(&r, false).contains("acquisition_completeness="));
+            assert_eq!(
+                facts.kernel_log.detail.as_deref(),
+                Some("original acquisition detail")
+            );
+        }
+    }
+
+    #[test]
+    fn retained_reports_stay_degraded_and_absent_edac_stays_unknown() {
+        use crate::eval::{
+            kernel_scream::KernelScream, memrot::Memrot, network_choke_point::NetworkChokePoint,
+            silent_killer::SilentKiller, Evaluator,
+        };
+        let mut facts = fixtures::clean_facts();
+        facts.kernel_log.value.as_mut().unwrap().lines = (1..=5)
+            .map(|t| format!("<6>[ {t}.000000] eno1: Link is Down"))
+            .chain(["<3>[ 6.000000] EXT4-fs error: historical record".into()])
+            .collect();
+        for evaluator in [&NetworkChokePoint as &dyn Evaluator, &SilentKiller] {
+            let finding = evaluator.evaluate(&facts);
+            assert_eq!(finding.verdict, Verdict::Degraded);
+            let plan =
+                CollectionPlan::new(evaluator.source_roles().iter().map(|r| r.source).collect());
+            let r = build(&facts, vec![finding], UNIX_EPOCH, Duration::ZERO, &plan);
+            for output in [human::render(&r, false), json::render(&r)] {
+                assert!(output.contains("retained kernel"));
+                assert!(output.contains("do not establish that a condition is still active"));
+                if evaluator.accusation() == "network-choke-point" {
+                    assert!(output.contains("not a current flap rate"));
+                }
+            }
+        }
+        facts.kernel_log.value.as_mut().unwrap().lines = vec!["<6>[ 1.000000] quiet record".into()];
+        facts.edac = Source::failed(Status::Unsupported, "no EDAC in fixture", Duration::ZERO);
+        let memory = Memrot.evaluate(&facts);
+        let kernel = KernelScream.evaluate(&facts);
+        assert_eq!(memory.verdict, Verdict::Unknown);
+        assert_eq!(kernel.verdict, Verdict::Clear);
+        assert_eq!(overall_verdict(&[kernel, memory]), Verdict::Unknown);
     }
 }

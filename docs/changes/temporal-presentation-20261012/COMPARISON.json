@@ -1,0 +1,79 @@
+{
+  "source": "b3d5e4a3c304e440ebb4d8b703efcecf26809565",
+  "baseline_product": "5aef9cd85486cb15b7d044ab44acc08c9aebeef2",
+  "driver_sha256": "ec6a6bc09f565f39dc9884751a71110a24f747943064687883740292d7234006",
+  "schedule_identical": true,
+  "cases": [
+    {
+      "case": "clean-network",
+      "verdict": "CLEAR",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "flaps-after-log-snapshot",
+      "verdict": "CLEAR",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "hung-task-not-recognized",
+      "verdict": "CLEAR",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "no-edac",
+      "verdict": "UNKNOWN",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "old-flaps-300-day-boot",
+      "verdict": "DEGRADED",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "old-fs-error-current-rw",
+      "verdict": "DEGRADED",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "recent-flaps",
+      "verdict": "DEGRADED",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "retained-log-clean",
+      "verdict": "CLEAR",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "retained-panic-control",
+      "verdict": "DEGRADED",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "same-fixture-log-after-sample-control",
+      "verdict": "DEGRADED",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "selected-kernel-no-edac",
+      "verdict": "CLEAR",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    },
+    {
+      "case": "unknown-retention",
+      "verdict": "CLEAR",
+      "verdicts_requirements_statuses_and_indication_counts_unchanged": true
+    }
+  ],
+  "limits": "deterministic disclosed regression; not renewed guest qualification; acquisition elapsed/completed offsets not compared across executions",
+  "samples": {
+    "old-flaps-300-day-boot.json": "fd5ff42abe5d9eeef27ed5e8e24a1bb774a12579232a4fab381aa8edddc2fae9",
+    "old-flaps-300-day-boot.txt": "61054097aa24a05b89073558ac704a89ae427b204f0774bb763aced3f6eef125",
+    "old-fs-error-current-rw.json": "99316a066da49c1be68615253fe04eb88c1b8a725ce46fd9eb14a70c8107ac7b",
+    "old-fs-error-current-rw.txt": "76b617496b492593141cf4e1d628ecc8bd8f3b6b9ba8b755541c452ed3f5cca7",
+    "unknown-retention.json": "a167722c190e64f324703d4d5005f9554794ffe2e915f805d80aa4f3a7e07f26",
+    "unknown-retention.txt": "98a375853388401e21e646d95dbe34113fa4e43e2f5666862037f89d9a8393e4",
+    "no-edac.json": "61ec8c6861e0299ce3d15ab458211dd35b43d45434b678849d3ef40ebce025e0",
+    "no-edac.txt": "10203629bed86a1322d3144f47d2c2ccd1db82a94cfc32e3c8bbce3176d60bfb"
+  }
+}

@@ -1,0 +1,11 @@
+ALIBI host=temporal-fixture decision=0.00s mtti=n/a complete=2.20s
+
+CLEAR     kernel-scream        no recognized serious-event patterns in acquired retained kernel log
+          decided_at_ms=0 innocence_at_ms=n/a sources: kernel-log(required)
+          boundary: no recognized serious-event patterns in the acquired kernel log; excludes neither unlogged kernel faults nor lost log history
+
+verdict: CLEAR (innocence established for selected accusations only)
+
+envelope: started_at=2024-09-09T22:13:20Z boot_time=2023-11-14T22:13:20Z
+  kernel-log status=ok acquisition_completeness=complete method="deterministic fixture" elapsed_ms=0 completed_at_ms=0
+    detail="completeness describes acquisition, not historical coverage; kernel-log collection requests retained current-boot records only; historical coverage, gaps and freshness are not established. Retained reports do not establish that a condition is still active. Collection completion times and sample windows are not log-history coverage."

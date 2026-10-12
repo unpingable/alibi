@@ -72,7 +72,9 @@ impl Evaluator for Memrot {
                 }
                 let (matches, _) = patterns::matches_for(&log.lines, self.accusation());
                 for (line, label) in matches {
-                    finding.indications.push(format!("{}: {}", label, line));
+                    finding
+                        .indications
+                        .push(format!("retained kernel-log report: {}: {}", label, line));
                 }
             }
             None => {
@@ -87,7 +89,10 @@ impl Evaluator for Memrot {
 
         finding.verdict = base_verdict(&finding.indications, &required_failures);
         finding.summary = match finding.verdict {
-            Verdict::Clear => "EDAC counters zero; no kernel-reported memory errors".to_string(),
+            Verdict::Clear => {
+                "observed EDAC counters zero; no recognized memory errors in acquired retained log"
+                    .to_string()
+            }
             Verdict::Degraded => first_plus_more(&finding.indications),
             Verdict::Unknown => {
                 let mut parts = required_failures;
@@ -118,7 +123,7 @@ mod tests {
         assert_eq!(finding.verdict, Verdict::Clear);
         assert_eq!(
             finding.summary,
-            "EDAC counters zero; no kernel-reported memory errors"
+            "observed EDAC counters zero; no recognized memory errors in acquired retained log"
         );
     }
 
