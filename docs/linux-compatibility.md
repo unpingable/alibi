@@ -26,7 +26,7 @@ never whole-host health. No diagnostic-time improvement is established.
 ## Reproduction and observed limits
 
 Run `scripts/build-compatible-linux.sh /absolute/output/directory` with Docker,
-Python 3 and binutils. The script pins Rust 1.94.0 and Debian 11 image content,
+Python 3.11+ and binutils. The script pins Rust 1.94.0 and Debian 11 image content,
 uses no build network, runs regression tests and verifies symbol requirements
 before packaging. If the image is absent Docker first downloads that pinned image.
 Source builds also work with `cargo build --release --locked` on the target.
