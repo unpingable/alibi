@@ -205,7 +205,7 @@ fn default_human_exposes_canonical_envelope_without_verbose() {
     let rendered = alibi::receipt::human::render(&receipt, false);
     for source in &receipt.sources {
         assert!(rendered.contains(&format!(
-            "{} status={} completeness={}",
+            "{} status={} acquisition_completeness={}",
             source.name,
             source.status.as_str(),
             source.completeness.as_str()
