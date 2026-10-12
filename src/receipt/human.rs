@@ -48,8 +48,10 @@ pub fn render(receipt: &Receipt, verbose: bool) -> String {
             uncertainty(&mut out, receipt, finding);
         }
         section(&mut out, "skipped", &finding.skipped);
-        if verbose || finding.verdict == Verdict::Unknown {
+        if verbose || matches!(finding.verdict, Verdict::Unknown | Verdict::Degraded) {
             section(&mut out, "indications", &finding.indications);
+        }
+        if verbose || finding.verdict == Verdict::Unknown {
             section(&mut out, "evidence", &finding.evidence);
         }
     }
@@ -203,6 +205,29 @@ mod tests {
                 "missing {expected}: {rendered}"
             );
         }
+    }
+
+    #[test]
+    fn default_degraded_output_preserves_all_canonical_indications() {
+        let mut r = receipt(None);
+        r.verdict = Verdict::Degraded;
+        let mut f = Finding::new("network-choke-point");
+        f.verdict = Verdict::Degraded;
+        f.summary = "sampled drops (+1 more)".into();
+        f.indications = vec!["sampled drops".into(), "no usable default route".into()];
+        f.evidence = vec!["expanded counter observations".into()];
+        r.findings.push(f);
+        let json_before = crate::receipt::json::render(&r);
+        for verbose in [false, true] {
+            let text = render(&r, verbose);
+            for indication in &r.findings[0].indications {
+                assert!(text.contains(&format!("- {indication}\n")));
+                assert!(json_before.contains(indication));
+            }
+            assert_eq!(text.contains("expanded counter observations"), verbose);
+            assert_eq!(text.matches("indications:").count(), 1);
+        }
+        assert_eq!(json_before, crate::receipt::json::render(&r));
     }
 
     #[test]
