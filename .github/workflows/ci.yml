@@ -52,3 +52,27 @@ jobs:
             dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
+
+  compatible-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and test older GNU binary
+        run: scripts/build-compatible-linux.sh "$RUNNER_TEMP/alibi-compatible"
+      - name: Verify archive
+        run: |
+          cd "$RUNNER_TEMP/alibi-compatible/dist"
+          sha256sum --check SHA256SUMS
+          tar -xzf alibi-0.1.0-x86_64-unknown-linux-gnu-glibc2.31.tar.gz
+          ./alibi-0.1.0-x86_64-unknown-linux-gnu-glibc2.31/alibi --version
+          ./alibi-0.1.0-x86_64-unknown-linux-gnu-glibc2.31/alibi --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alibi-linux-x86_64-glibc2.31-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/alibi-compatible/dist/*.tar.gz
+            ${{ runner.temp }}/alibi-compatible/dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14

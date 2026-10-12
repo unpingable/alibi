@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import io
 import json
+import re
 from pathlib import Path
 import subprocess
 import tarfile
@@ -19,7 +20,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--glibc-baseline', choices=['2.31'], help='Verify the compatibility build ABI and use distinct asset naming')
     args = parser.parse_args()
+    archive_name = NAME + ('-glibc' + args.glibc_baseline if args.glibc_baseline else '')
     binary = args.binary.read_bytes()
     if binary[:6] != b'\x7fELF\x02\x01' or binary[18:20] != b'\x3e\x00':
         parser.error('expected a little-endian ELF64 x86_64 binary')
@@ -28,25 +31,37 @@ def main():
     subprocess.run(['git', 'diff', '--exit-code', QUALIFIED_SOURCE, '--',
                     'src', 'tests', 'Cargo.toml', 'Cargo.lock'], cwd=ROOT, check=True)
     binary_sha = hashlib.sha256(binary).hexdigest()
+    required_glibc = None
+    if args.glibc_baseline:
+        elf = subprocess.check_output(['readelf', '-W', '-V', str(args.binary)], text=True)
+        versions = re.findall(r'Name: GLIBC_(\d+(?:\.\d+)+)', elf)
+        if not versions or 'GLIBC_PRIVATE' in elf:
+            parser.error('cannot establish public glibc requirements')
+        required_glibc = max(versions, key=lambda v: tuple(map(int, v.split('.'))))
+        if tuple(map(int, required_glibc.split('.'))) > (2, 31):
+            parser.error('binary exceeds glibc 2.31 baseline')
     source = dict(version='0.1.0', stage='experimental', repository='https://github.com/unpingable/alibi',
                   repository_revision=revision, qualified_product_revision=QUALIFIED_SOURCE,
                   binary_sha256=binary_sha, exact_guest_qualified_binary=binary_sha == QUALIFIED_BINARY,
                   qualification='QUALIFIED_WITH_LIMITATIONS; see docs/requalification-20261011/QUALIFICATION.md',
                   packaging='Dynamic Linux x86_64 GNU binary. No static or universal Linux compatibility claim.',
                   note='A CI rebuild has source correspondence; it is not the original guest-tested executable unless its hash matches.')
+    if args.glibc_baseline:
+        source.update(compatibility_baseline='glibc 2.31', maximum_required_glibc_symbol=required_glibc,
+                      note='New older-glibc build; see docs/linux-compatibility.md for its bounded runtime checks. Not the original guest-qualified binary.')
     entries = {'alibi': binary, 'SOURCE.json': (json.dumps(source, indent=2)+'\n').encode()}
     for name, path in [('LICENSE', ROOT/'LICENSE'), ('NOTICE', ROOT/'NOTICE'),
-                       ('INSTALL.md', ROOT/'docs/release-v0.1/INSTALL.md')]:
+                       ('INSTALL.md', ROOT/('docs/linux-compatibility.md' if args.glibc_baseline else 'docs/release-v0.1/INSTALL.md'))]:
         entries[name] = path.read_bytes()
     args.output.mkdir(parents=True, exist_ok=True)
-    archive = args.output/(NAME+'.tar.gz')
+    archive = args.output/(archive_name+'.tar.gz')
     with archive.open('xb') as stream:
         with gzip.GzipFile(fileobj=stream, mode='wb', filename='', mtime=0) as compressed:
             with tarfile.open(fileobj=compressed, mode='w') as tar:
-                for name, data in sorted(entries.items()):
-                    info = tarfile.TarInfo(NAME+'/'+name)
+                for member, data in sorted(entries.items()):
+                    info = tarfile.TarInfo(archive_name+'/'+member)
                     info.size = len(data)
-                    info.mode = 0o755 if name == 'alibi' else 0o644
+                    info.mode = 0o755 if member == 'alibi' else 0o644
                     info.mtime = 0
                     tar.addfile(info, io.BytesIO(data))
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
