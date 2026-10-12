@@ -10,6 +10,7 @@ alibi — read-only Linux host interrogation
 usage:
   alibi check [--json] [--verbose] [accusation...]
   alibi explain <accusation>
+  alibi guide
   alibi --version
 
 accusations: kernel-scream, silent-killer, memrot, network-choke-point
@@ -22,6 +23,14 @@ fn main() -> ExitCode {
     match args.first().map(String::as_str) {
         Some("check") => cmd_check(&args[1..]),
         Some("explain") => cmd_explain(&args[1..]),
+        Some("guide") if args.len() == 1 => {
+            print!("{}", explain::GUIDE);
+            ExitCode::SUCCESS
+        }
+        Some("guide") => {
+            eprintln!("alibi: guide takes no arguments");
+            ExitCode::from(64)
+        }
         Some("--version") | Some("-V") => {
             println!("alibi {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
@@ -36,7 +45,7 @@ fn main() -> ExitCode {
         }
         Some(other) => {
             eprintln!("alibi: unknown subcommand: {}", other);
-            eprintln!("valid subcommands: check, explain");
+            eprintln!("valid subcommands: check, explain, guide");
             ExitCode::from(64)
         }
     }

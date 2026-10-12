@@ -1,3 +1,5 @@
+use crate::collect::{Completeness, Status};
+use crate::eval::{EvidenceRole, Finding, Verdict};
 use crate::receipt::Receipt;
 
 pub fn render(receipt: &Receipt, verbose: bool) -> String {
@@ -36,14 +38,23 @@ pub fn render(receipt: &Receipt, verbose: bool) -> String {
             ));
         }
         out.push('\n');
+        if finding.verdict == Verdict::Clear {
+            out.push_str(&format!(
+                "          boundary: {}\n",
+                crate::explain::clear_boundary(finding.accusation)
+            ));
+        }
+        if finding.verdict == Verdict::Unknown {
+            uncertainty(&mut out, receipt, finding);
+        }
         section(&mut out, "skipped", &finding.skipped);
-        if verbose {
+        if verbose || finding.verdict == Verdict::Unknown {
             section(&mut out, "indications", &finding.indications);
             section(&mut out, "evidence", &finding.evidence);
         }
     }
     let innocence = if receipt.innocence_established {
-        "innocence established"
+        "innocence established for selected accusations only"
     } else {
         "innocence not established"
     };
@@ -83,6 +94,41 @@ pub fn render(receipt: &Receipt, verbose: bool) -> String {
         }
     }
     out
+}
+
+// Presentation uses the canonical source status and completeness, never guesses
+// a cause by matching error text. Details retain the collector/evaluator's reason.
+fn uncertainty(out: &mut String, receipt: &Receipt, finding: &Finding) {
+    let mut explained = false;
+    for role in &finding.source_roles {
+        if role.role != EvidenceRole::Required {
+            continue;
+        }
+        let source = receipt
+            .sources
+            .iter()
+            .find(|s| s.name == role.source.as_str());
+        let (kind, next) = match source {
+            None => ("unavailable evidence", "required source has no receipt record; this receipt cannot establish exoneration"),
+            Some(s) => match s.status {
+                Status::Unavailable => ("unavailable evidence", "inspect the source failure below; rerunning only helps if access or availability changes"),
+                Status::Unsupported => ("unsupported evidence source", "this environment/source is outside supported observation; repeating unchanged does not establish it"),
+                Status::Malformed => ("invalid or inconsistent evidence", "inspect the recorded detail; a later stable observation may help but cannot reconstruct the missing interval"),
+                Status::Ok if s.completeness != Completeness::Complete => ("insufficient evidence", "the source is incomplete; a complete applicable observation is needed"),
+                Status::Ok => continue,
+            },
+        };
+        explained = true;
+        out.push_str(&format!(
+            "          uncertainty: {}: {} — {}\n",
+            role.source.as_str(),
+            kind,
+            next
+        ));
+    }
+    if !explained {
+        out.push_str("          uncertainty: insufficient evidence for this accusation; inspect the summary and evidence below. Source availability alone does not establish exoneration.\n");
+    }
 }
 
 fn section(out: &mut String, name: &str, items: &[String]) {
@@ -171,5 +217,84 @@ mod tests {
         let rendered = render(&receipt(Some(Duration::from_millis(120))), false);
         assert!(rendered.contains("decision=0.12s mtti=0.12s complete=0.12s"));
         assert!(rendered.contains("innocence established"));
+    }
+    #[test]
+    fn uncertainty_categories_preserve_canonical_receipt() {
+        use crate::collect::SourceId;
+        use crate::eval::SourceRole;
+        use crate::receipt::SourceRecord;
+        for (status, completeness, label) in [
+            (
+                Status::Unavailable,
+                Completeness::None,
+                "unavailable evidence",
+            ),
+            (
+                Status::Unsupported,
+                Completeness::None,
+                "unsupported evidence source",
+            ),
+            (
+                Status::Malformed,
+                Completeness::Partial,
+                "invalid or inconsistent evidence",
+            ),
+            (Status::Ok, Completeness::Partial, "insufficient evidence"),
+        ] {
+            let mut r = receipt(None);
+            let mut f = Finding::new("network-choke-point");
+            f.verdict = Verdict::Unknown;
+            f.summary = "bounded observation unavailable".into();
+            f.source_roles = vec![SourceRole::required(SourceId::Net)];
+            f.evidence.push("preserved observation detail".into());
+            r.findings.push(f);
+            r.sources.push(SourceRecord {
+                name: "net",
+                status,
+                completeness,
+                method: Some("fixture observation".into()),
+                detail: Some("source-specific reason".into()),
+                elapsed: Duration::ZERO,
+                completed_at: Duration::ZERO,
+                window: None,
+            });
+            let json_before = crate::receipt::json::render(&r);
+            let text = render(&r, false);
+            assert!(text.contains(label));
+            assert!(text.contains("source-specific reason"));
+            assert!(text.contains("preserved observation detail"));
+            assert!(text.contains("UNKNOWN"));
+            assert!(!text.contains("sudo"));
+            assert_eq!(json_before, crate::receipt::json::render(&r));
+        }
+    }
+
+    #[test]
+    fn missing_record_and_evaluator_uncertainty_are_not_hidden() {
+        use crate::collect::SourceId;
+        use crate::eval::SourceRole;
+        let mut r = receipt(None);
+        let mut f = Finding::new("network-choke-point");
+        f.verdict = Verdict::Unknown;
+        f.source_roles = vec![SourceRole::required(SourceId::Net)];
+        r.findings.push(f);
+        assert!(render(&r, false).contains("no receipt record"));
+        r.findings[0].source_roles.clear();
+        assert!(
+            render(&r, false).contains("Source availability alone does not establish exoneration")
+        );
+    }
+
+    #[test]
+    fn clear_keeps_evidence_timing_and_scope_visible() {
+        let mut r = receipt(Some(Duration::ZERO));
+        let mut f = Finding::new("kernel-scream");
+        f.summary = "no matched events".into();
+        r.findings.push(f);
+        let text = render(&r, false);
+        assert!(text.contains("unlogged kernel faults"));
+        assert!(text.contains("selected accusations only"));
+        assert!(text.contains("decided_at_ms="));
+        assert!(!text.contains("uncertainty:"));
     }
 }
