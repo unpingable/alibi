@@ -29,13 +29,37 @@ pub fn collect() -> Source<Vec<Mount>> {
             );
         }
     };
-    match parse_mounts(&content) {
-        Ok((mounts, excluded)) => {
-            let mut source = Source::ok(mounts, PROC_SELF_MOUNTS, start.elapsed());
-            source.detail = Some(format!("{} non-material mounts excluded", excluded));
-            source
+    let mut source = source_from_mounts(&content, start.elapsed());
+    source.elapsed = start.elapsed();
+    source
+}
+
+fn source_from_mounts(content: &str, elapsed: std::time::Duration) -> Source<Vec<Mount>> {
+    let mut mounts = Vec::new();
+    let mut excluded = 0;
+    let mut issues = Vec::new();
+    for (index, line) in content.lines().enumerate() {
+        match parse_mounts(line) {
+            Ok((mut rows, skipped)) => {
+                mounts.append(&mut rows);
+                excluded += skipped;
+            }
+            Err(error) => issues.push(format!("line {}: {}", index + 1, error)),
         }
-        Err(e) => Source::failed(Status::Malformed, e, start.elapsed()),
+    }
+    let detail = format!("{} non-material mounts excluded", excluded);
+    if issues.is_empty() {
+        let mut source = Source::ok(mounts, PROC_SELF_MOUNTS, elapsed);
+        source.detail = Some(detail);
+        source
+    } else {
+        Source::partial(
+            mounts,
+            Status::Malformed,
+            format!("{}; {}", detail, issues.join("; ")),
+            PROC_SELF_MOUNTS,
+            elapsed,
+        )
     }
 }
 
@@ -47,7 +71,7 @@ pub fn parse_mounts(content: &str) -> Result<(Vec<Mount>, usize), String> {
             continue;
         }
         let fields: Vec<&str> = line.split_whitespace().collect();
-        if fields.len() < 6 {
+        if fields.len() != 6 {
             return Err(format!("malformed mounts line: {:?}", line));
         }
         let fstype = fields[2].to_string();
@@ -63,10 +87,9 @@ pub fn parse_mounts(content: &str) -> Result<(Vec<Mount>, usize), String> {
                 line
             ));
         }
-        // The root row is always retained, even when its filesystem type is
-        // outside the model, so evaluators can tell "root is a type we can
-        // reason about" from "root is something else" (or missing entirely).
-        // Non-root, non-material rows are dropped and only counted.
+        // Always retain the root, including unsupported filesystem types:
+        // evaluators must distinguish an out-of-model root from bounded
+        // exoneration over the remaining material filesystems.
         if !material && mountpoint != "/" {
             excluded += 1;
             continue;
@@ -125,6 +148,83 @@ proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
 tmpfs /run tmpfs rw,nosuid,nodev 0 0
 /dev/loop0 /snap/core squashfs ro,nodev,relatime 0 0
 ";
+
+    #[test]
+    fn malformed_neighbors_preserve_observations_without_inventing_sibling_absence() {
+        use crate::eval::{Evaluator, Verdict};
+        for mode in ["ro", "rw"] {
+            for malformed_first in [false, true] {
+                let row = format!("/dev/vda / ext4 {} 0 0\n", mode);
+                let table = if malformed_first {
+                    format!("bad row\n{}", row)
+                } else {
+                    format!("{}bad row\n", row)
+                };
+                let mut facts = crate::eval::fixtures::clean_facts();
+                facts.mounts = source_from_mounts(&table, std::time::Duration::ZERO);
+                assert!(!facts.mounts.is_complete());
+                assert_eq!(facts.mounts.get().unwrap().len(), 1);
+                let finding = crate::eval::silent_killer::SilentKiller.evaluate(&facts);
+                assert_eq!(finding.verdict, Verdict::Unknown);
+                assert_eq!(
+                    finding
+                        .evidence
+                        .iter()
+                        .any(|e| e.contains("observed read-only")),
+                    mode == "ro"
+                );
+                facts.fs_usage.value.as_mut().unwrap()[0]
+                    .bytes
+                    .as_mut()
+                    .unwrap()
+                    .free = 1;
+                assert_eq!(
+                    crate::eval::silent_killer::SilentKiller
+                        .evaluate(&facts)
+                        .verdict,
+                    Verdict::Degraded
+                );
+                facts.fs_usage.value.as_mut().unwrap()[0]
+                    .bytes
+                    .as_mut()
+                    .unwrap()
+                    .free = 500;
+                facts
+                    .kernel_log
+                    .value
+                    .as_mut()
+                    .unwrap()
+                    .lines
+                    .push("EXT4-fs error (device vda): journal aborted".into());
+                assert_eq!(
+                    crate::eval::silent_killer::SilentKiller
+                        .evaluate(&facts)
+                        .verdict,
+                    Verdict::Degraded
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn retained_writable_sibling_keeps_partial_read_only_view_bounded() {
+        use crate::eval::{Evaluator, Verdict};
+        let mut facts = crate::eval::fixtures::clean_facts();
+        facts.mounts = source_from_mounts(
+            "/dev/vda / ext4 rw 0 0\n/dev/vda /view ext4 ro 0 0\nbad row\n",
+            std::time::Duration::ZERO,
+        );
+        let finding = crate::eval::silent_killer::SilentKiller.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Unknown);
+        assert!(finding
+            .evidence
+            .iter()
+            .any(|e| e.contains("read-only bind")));
+        assert!(!finding
+            .evidence
+            .iter()
+            .any(|e| e.contains("unobserved writable sibling")));
+    }
 
     #[test]
     fn keeps_only_material_mounts() {

@@ -27,6 +27,9 @@ jobs:
       - name: Test
         run: cargo test --locked
 
+      - name: Agent consumer contract
+        run: python3 tests/read_receipt_test.py
+
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
 

@@ -44,7 +44,7 @@ pub fn render(receipt: &Receipt, verbose: bool) -> String {
                 crate::explain::clear_boundary(finding.accusation)
             ));
         }
-        if finding.verdict == Verdict::Unknown {
+        if matches!(finding.verdict, Verdict::Unknown | Verdict::Degraded) {
             uncertainty(&mut out, receipt, finding);
         }
         section(&mut out, "skipped", &finding.skipped);
@@ -65,6 +65,28 @@ pub fn render(receipt: &Receipt, verbose: bool) -> String {
         receipt.verdict.as_str(),
         innocence
     ));
+    let selected = |name| {
+        receipt
+            .findings
+            .iter()
+            .any(|f| f.source_roles.iter().any(|r| r.source.as_str() == name))
+    };
+    let mut scope = Vec::new();
+    if selected("mounts") {
+        scope.push("mount state is a snapshot");
+    }
+    if selected("edac") {
+        scope.push("EDAC counters are cumulative with unknown event ages");
+    }
+    if selected("net") {
+        scope.push("network deltas cover only the recorded sample window");
+    }
+    if selected("kernel-log") {
+        scope.push("retained log reports do not establish a currently active condition; event ages and historical continuity are not bounded");
+    }
+    if !scope.is_empty() {
+        out.push_str(&format!("\nobservation scope: {}.\n", scope.join("; ")));
+    }
     out.push_str(&format!(
         "\nenvelope: started_at={} boot_time={}\n",
         receipt.started_at,
@@ -121,6 +143,16 @@ fn uncertainty(out: &mut String, receipt: &Receipt, finding: &Finding) {
             },
         };
         explained = true;
+        if let Some(source) = source {
+            let guidance = match (source.name, source.status) {
+                ("edac", Status::Unsupported) => Some("no EDAC controllers are exposed; check platform/driver support and consult BMC or hypervisor hardware evidence. Additional privilege cannot create absent EDAC evidence"),
+                ("kernel-log", Status::Unavailable) => Some("inspect dmesg and journal failure details. If access was denied, obtain authorized kernel-log access; otherwise check command availability and retained current-boot logs"),
+                _ => None,
+            };
+            if let Some(guidance) = guidance {
+                out.push_str(&format!("          next investigation: {}\n", guidance));
+            }
+        }
         out.push_str(&format!(
             "          uncertainty: {}: {} — {}\n",
             role.source.as_str(),
@@ -128,7 +160,7 @@ fn uncertainty(out: &mut String, receipt: &Receipt, finding: &Finding) {
             next
         ));
     }
-    if !explained {
+    if !explained && finding.verdict == Verdict::Unknown {
         out.push_str("          uncertainty: insufficient evidence for this accusation; inspect the summary and evidence below. Source availability alone does not establish exoneration.\n");
     }
 }
@@ -165,6 +197,54 @@ mod tests {
             findings: vec![],
             boot_time: None,
             sources: vec![],
+        }
+    }
+
+    #[test]
+    fn source_specific_next_observations_and_temporal_scope_are_visible() {
+        use crate::collect::SourceId;
+        use crate::eval::SourceRole;
+        use crate::receipt::SourceRecord;
+        for (id, status, expected) in [
+            (
+                SourceId::Edac,
+                Status::Unsupported,
+                "Additional privilege cannot create absent EDAC evidence",
+            ),
+            (
+                SourceId::KernelLog,
+                Status::Unavailable,
+                "If access was denied, obtain authorized kernel-log access",
+            ),
+        ] {
+            let mut r = receipt(None);
+            let mut f = Finding::new("memrot");
+            f.verdict = Verdict::Unknown;
+            f.source_roles = vec![SourceRole::required(id)];
+            r.findings.push(f);
+            r.sources.push(SourceRecord {
+                name: id.as_str(),
+                status,
+                completeness: Completeness::None,
+                method: None,
+                detail: None,
+                elapsed: Duration::ZERO,
+                completed_at: Duration::ZERO,
+                window: None,
+            });
+            let json_before = crate::receipt::json::render(&r);
+            let text = render(&r, false);
+            assert!(text.contains(expected));
+            assert_eq!(text.contains("unknown event ages"), id == SourceId::Edac);
+            assert_eq!(
+                text.contains("historical continuity are not bounded"),
+                id == SourceId::KernelLog
+            );
+            assert!(!text.contains("mount state is a snapshot"));
+            assert!(!text.contains("network deltas"));
+            assert_eq!(json_before, crate::receipt::json::render(&r));
+            r.findings[0].verdict = Verdict::Degraded;
+            assert!(render(&r, false).contains(expected));
         }
     }
 

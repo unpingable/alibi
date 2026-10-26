@@ -333,7 +333,19 @@ subsystems, malformed and partial normalized facts, source disappearance, and
 counter reset. Parsers are tested against recorded command/file samples
 (including pathological spacing and junk). Focused pure assembly seams cover
 evaluation and receipt construction. General filesystem, command, sleep, and
-clock injection, along with partial mount parsing, remain explicitly deferred.
+clock injection remain explicitly deferred. Mount collection retains individually
+valid rows across malformed neighbors as malformed/partial evidence. Pure assembly
+tests prove retained independent positives survive and incomplete negative
+observations cannot establish CLEAR. A read-only mount without an observed
+writable sibling requires complete enumeration to support DEGRADED: incomplete
+enumeration may hide an intentional bind view's writable sibling. Otherwise the
+read-only observation remains ambiguous evidence, without suppressing independent
+capacity or retained-log positives. Route read-result tests distinguish missing, denied, malformed,
+and present IPv6 tables; only an absent table paired with the kernel integer
+module parameter `disable=1` establishes IPv6 non-applicability. See the
+[kernel IPv6 parameter contract](https://docs.kernel.org/networking/ipv6.html).
+Bond masters and slaves remain in the same per-interface counter domain; this
+does not assess redundancy, LACP state, or remote reachability.
 The JSON emitter and RFC 3339 clock conversion are unit-tested. **Mandated test:** kernel-log
 collection failure yields `kernel-scream: UNKNOWN`, never `CLEAR`.
 

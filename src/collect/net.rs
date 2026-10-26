@@ -359,9 +359,23 @@ fn read_counter(file: &mut File) -> Result<u64, (Status, String)> {
 
 pub fn collect_routes() -> Source<RouteFacts> {
     let start = Instant::now();
+    let v4_read = fs::read_to_string("/proc/net/route");
+    let v6_read = fs::read_to_string("/proc/net/ipv6_route");
+    let disable = fs::read_to_string("/sys/module/ipv6/parameters/disable");
+    let mut source = routes_from_reads(v4_read, v6_read, disable, start.elapsed());
+    source.elapsed = start.elapsed();
+    source
+}
+
+fn routes_from_reads(
+    v4_read: std::io::Result<String>,
+    v6_read: std::io::Result<String>,
+    disable: std::io::Result<String>,
+    elapsed: Duration,
+) -> Source<RouteFacts> {
     let mut issues = Vec::new();
     let mut issue_status = Status::Unavailable;
-    let v4_default = match fs::read_to_string("/proc/net/route") {
+    let v4_default = match v4_read {
         Ok(content) => match parse_v4_default(&content) {
             Ok(value) => Some(value),
             Err(error) => {
@@ -375,7 +389,13 @@ pub fn collect_routes() -> Source<RouteFacts> {
             None
         }
     };
-    let v6_default = match fs::read_to_string("/proc/net/ipv6_route") {
+    // Only an explicit kernel module disable parameter establishes that a
+    // missing IPv6 table is expected. A missing file alone is not absence.
+    let disabled = v6_read
+        .as_ref()
+        .is_err_and(|e| e.kind() == ErrorKind::NotFound)
+        && disable.is_ok_and(|value| ipv6_explicitly_disabled(&value));
+    let v6_default = match v6_read {
         Ok(content) => match parse_v6_default(&content) {
             Ok(value) => Some(value),
             Err(error) => {
@@ -384,29 +404,35 @@ pub fn collect_routes() -> Source<RouteFacts> {
                 None
             }
         },
+        Err(_) if disabled => Some(false),
         Err(error) => {
             issues.push(format!("/proc/net/ipv6_route: {}", error));
             None
         }
     };
+    if disabled {
+        issues.push("IPv6 route table absent; /sys/module/ipv6/parameters/disable explicitly disables IPv6 (not applicable)".to_string());
+    }
     let facts = RouteFacts {
         v4_default: v4_default.unwrap_or(false),
         v6_default: v6_default.unwrap_or(false),
     };
     let method = "/proc/net/route; /proc/net/ipv6_route";
-    if issues.is_empty() {
-        Source::ok(facts, method, start.elapsed())
+    if v4_default.is_some() && v6_default.is_some() {
+        let mut source = Source::ok(facts, method, elapsed);
+        if !issues.is_empty() {
+            source.detail = Some(issues.join("; "));
+        }
+        source
     } else if v4_default.is_some() || v6_default.is_some() {
-        Source::partial(
-            facts,
-            issue_status,
-            issues.join("; "),
-            method,
-            start.elapsed(),
-        )
+        Source::partial(facts, issue_status, issues.join("; "), method, elapsed)
     } else {
-        Source::failed(issue_status, issues.join("; "), start.elapsed())
+        Source::failed(issue_status, issues.join("; "), elapsed)
     }
+}
+
+fn ipv6_explicitly_disabled(value: &str) -> bool {
+    value.trim() == "1"
 }
 
 pub fn has_v4_default(content: &str) -> bool {
@@ -559,6 +585,69 @@ eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
 Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT
 eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
 ";
+
+    #[test]
+    fn routes_read_results_preserve_applicability_and_failures() {
+        use crate::eval::{Evaluator, Verdict};
+        let v4 = "Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\neth0 00000000 0100000A 0003 0 0 0 00000000 0 0 0\n";
+        let missing = || Err(std::io::Error::from(ErrorKind::NotFound));
+        for (v6, disable, expected, complete) in [
+            (missing(), Ok("1".into()), Verdict::Clear, true),
+            (missing(), Ok("0".into()), Verdict::Unknown, false),
+            (missing(), Ok("Y".into()), Verdict::Unknown, false),
+            (missing(), missing(), Verdict::Unknown, false),
+            (
+                Err(std::io::Error::from(ErrorKind::PermissionDenied)),
+                Ok("1".into()),
+                Verdict::Unknown,
+                false,
+            ),
+            (
+                Ok("malformed".into()),
+                Ok("1".into()),
+                Verdict::Unknown,
+                false,
+            ),
+            (Ok(String::new()), Ok("1".into()), Verdict::Clear, true),
+        ] {
+            let mut facts = crate::eval::fixtures::clean_facts();
+            facts.routes = routes_from_reads(Ok(v4.into()), v6, disable, Duration::ZERO);
+            assert_eq!(facts.routes.is_complete(), complete);
+            assert!(facts.routes.get().unwrap().v4_default);
+            assert_eq!(
+                crate::eval::network_choke_point::NetworkChokePoint
+                    .evaluate(&facts)
+                    .verdict,
+                expected
+            );
+        }
+        let source = routes_from_reads(
+            Err(std::io::Error::from(ErrorKind::PermissionDenied)),
+            missing(),
+            Ok("1".into()),
+            Duration::ZERO,
+        );
+        assert!(!source.is_complete());
+        assert!(source.failure_reason().contains("/proc/net/route"));
+        assert!(source.failure_reason().contains("explicitly disables IPv6"));
+        let source = routes_from_reads(
+            Ok(v4.into()),
+            Ok("malformed".into()),
+            Ok("1".into()),
+            Duration::ZERO,
+        );
+        assert_eq!(source.status, Status::Malformed);
+    }
+
+    #[test]
+    fn ipv6_disable_requires_explicit_kernel_parameter() {
+        for value in ["1\n", "1"] {
+            assert!(ipv6_explicitly_disabled(value));
+        }
+        for value in ["", "0", "N", "Y", "y", "yes", "garbage"] {
+            assert!(!ipv6_explicitly_disabled(value));
+        }
+    }
 
     #[test]
     fn detects_v4_default_route() {

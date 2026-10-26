@@ -251,6 +251,30 @@ mod tests {
     use std::time::Duration;
 
     #[test]
+    fn bond_master_and_slaves_remain_in_counter_domain() {
+        let mut facts = fixtures::clean_facts();
+        let net = facts.net.value.as_mut().unwrap();
+        let mut bond = net.interfaces[0].clone();
+        bond.name = "bond0".into();
+        bond.is_virtual = true;
+        net.interfaces.push(bond);
+        assert_eq!(NetworkChokePoint.evaluate(&facts).verdict, Verdict::Clear);
+        facts.net.value.as_mut().unwrap().interfaces[1]
+            .second
+            .rx_errors = Some(5);
+        let finding = NetworkChokePoint.evaluate(&facts);
+        assert_eq!(finding.verdict, Verdict::Degraded);
+        assert!(finding
+            .indications
+            .iter()
+            .any(|line| line.contains("bond0: RX errors")));
+        facts.net.value.as_mut().unwrap().interfaces[1]
+            .second
+            .rx_errors = None;
+        assert_eq!(NetworkChokePoint.evaluate(&facts).verdict, Verdict::Unknown);
+    }
+
+    #[test]
     fn not_applicable_without_interfaces() {
         let mut facts = fixtures::clean_facts();
         if let Some(net) = facts.net.value.as_mut() {

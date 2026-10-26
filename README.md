@@ -105,3 +105,7 @@ for UNKNOWN. Read the exact source detail: a rerun cannot recover lost history.
 No automatic root recommendation is made. JSON Receipt V2 remains unchanged.
 
 For field trials, use the [external-tester protocol](docs/field-testing.md). See the [next candidate notes](docs/release-v0.1.1/RELEASE-NOTES.md) for unpublished changes and evidence limits.
+
+Agents and other JSON consumers should start with the [Receipt V2 interface guide](docs/agent-interface.md)
+and its executable conservative consumer example. It covers selected scope,
+source traceability, exit-status checks, and unresolved evidence.

@@ -44,7 +44,7 @@ impl Evaluator for SilentKiller {
                 Some(root) if root.material => {}
                 Some(root) => {
                     let msg = format!(
-                        "root filesystem type {} is outside the mount model; functional damage cannot be excluded",
+                        "root filesystem type {} is outside the mount model; functional damage cannot be excluded; inspect filesystem-native status and capacity evidence",
                         root.fstype
                     );
                     required_failures.push(msg.clone());
@@ -69,6 +69,11 @@ impl Evaluator for SilentKiller {
                 .any(|other| other.device == m.device && !other.ro);
             if has_rw_sibling {
                 bind_views += 1;
+            } else if !facts.mounts.is_complete() {
+                finding.evidence.push(format!(
+                    "{} ({}, {}) observed read-only; mount enumeration incomplete, so an intentional bind view with an unobserved writable sibling cannot be excluded",
+                    m.mountpoint, m.fstype, m.device
+                ));
             } else {
                 finding.indications.push(format!(
                     "{} ({}, {}) mounted read-only; if intentional, treat as expected",

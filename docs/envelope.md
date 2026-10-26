@@ -200,3 +200,39 @@ the network sample; it cannot establish absence of log events throughout that
 later sample. Investigation #20 remains gated on a demonstrated benefit and
 approval before changing acquisition order. No stronger temporal qualification
 is claimed by these presentation changes.
+
+## Ordinary configurations and partial mount evidence
+
+All non-loopback interfaces, including bond masters and their slaves, remain in
+the network counter domain. Counters from different interfaces are not summed;
+a bond error or missing required counter cannot be hidden by clean slave counters.
+This checks observed errors and drops, not bond redundancy, LACP state, or remote
+reachability.
+
+A missing IPv6 route table alone remains incomplete evidence. If the kernel's
+`/sys/module/ipv6/parameters/disable` explicitly reports IPv6 disabled (`1`), an absent IPv6 table is treated as not applicable, and the route source
+records that reason. A denied or malformed table never receives this exception.
+A present table is parsed even when the disable parameter is set. Per-interface
+IPv6 settings alone do not establish that the whole family is absent.
+
+Malformed mount rows do not discard valid neighboring rows. Valid capacity and log positives can still establish DEGRADED; the mount source
+remains malformed/partial and cannot establish CLEAR. A retained read-only mount
+without an observed writable sibling is preserved as ambiguous evidence: a
+malformed row could hide an intentional bind view's writable sibling. This
+observation alone cannot establish DEGRADED from incomplete enumeration. The detail identifies the
+bad row numbers. Malformed or missing root evidence also remains unresolved.
+Unsupported root filesystems require filesystem-native status and capacity
+investigation; rerunning Alibi with more privilege does not extend its model.
+
+For agents consuming Receipt V2, join finding `sources` to `envelope.sources` by
+source name. Required-source status and completeness establish whether evidence
+is adequate; `detail`, `skipped`, and `evidence` preserve the specific cause and
+observations. Treat these prose strings as explanations, not stable enums. Do
+not infer present activity or historical continuity from source completion times.
+The JSON schema and exit codes are unchanged by the human investigation guidance.
+
+The [kernel IPv6 documentation](https://docs.kernel.org/networking/ipv6.html)
+defines the module `disable=1` setting as disabling all IPv6 functionality,
+requiring reboot to re-enable it. The kernel declares this integer parameter
+read-only (`0444`); this exception does not use the mutable per-interface sysctl.
+A compiled-out kernel without the explicit parameter remains unresolved.
