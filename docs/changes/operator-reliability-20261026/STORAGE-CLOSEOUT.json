@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-10-26T20:14:58.619344+00:00",
+  "owner": "coordinating agent; retained evidence belongs to repository owner",
+  "baseline_available_bytes": {
+    "root": 198012813312,
+    "data": 551370035200
+  },
+  "retained_allocated_bytes": {
+    "/data/git/alibi/dist/operator-reliability-20261026": 372736,
+    "/data/git/alibi/dist/operator-reliability-20261026-custody": 212992,
+    "/data/git/alibi/docs/changes/operator-reliability-20261026": 114688,
+    "/data/git/alibi/.lanes/sol-build": 20480
+  },
+  "reclaimed_allocated_bytes": {
+    "/tmp/alibi-operator-reliability-target": 179818496,
+    "/tmp/alibi-opus-review-20261026": 1236992
+  },
+  "exact_disposable_paths_removed": true,
+  "preexisting_target": "/data/git/alibi/target (preexisting 219 MiB; untouched)",
+  "final_capacity": {
+    "root": {
+      "available_bytes": 198002184192,
+      "free_inodes": 55457140
+    },
+    "data": {
+      "available_bytes": 551234494464,
+      "free_inodes": 117702005
+    }
+  },
+  "custody": "Unpublished exact binary package and owner-only review inputs/private host receipts retained in dist until evidence replay dependency is retired by owner. No new credentials, SSH identities, VMs or containers created. Original API key and workspace file untouched. Temporary copied workspace ID removed.",
+  "measurement_limits": "Path allocations are measured, not inferred from filesystem deltas. Concurrent host allocations and git-object growth are not attributed; source/documentation baseline allocation was not measured."
+}

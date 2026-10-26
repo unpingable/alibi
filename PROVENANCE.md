@@ -92,3 +92,20 @@ Constellation integration. No reduction in operator diagnostic time has been
 measured. See [current qualification](docs/requalification-20261011/QUALIFICATION.md),
 [environment correction](docs/requalification-20261011/ACCEPTANCE-CORRECTION.md),
 and [release evidence](docs/release-v0.1/EVIDENCE.md).
+
+## Operator reliability work — 2026-10-26
+
+The owner requested improvements for both human and agent production engineers,
+with Sol implementing and Claude Opus challenging and documenting. A GPT-6.1 Sol
+sub-agent implemented the changes; the coordinating agent reviewed the source,
+requested corrections and independently ran the checks. Claude Opus 5.5 was
+invoked through the Anthropic API on scoped source snapshots, without host
+receipts or credentials in the review inputs. Its written reviews are retained
+in [the change record](docs/changes/operator-reliability-20261026/README.md).
+The first API response exhausted its output budget without a written review;
+the subsequent review produced findings and a draft reliability note.
+
+The independent review is static source reasoning, not independent execution,
+a human field study, or qualification of the modified binary on other hosts.
+Reviewer suggestions were checked against code and primary Linux documentation;
+the change record distinguishes accepted findings from rejected claims.

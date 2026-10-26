@@ -40,8 +40,9 @@ currently active fault, a recent event, or recovery. No typed event-age or
 permission-denial field exists in V2: preserve `detail`, `skipped`, `indications`,
 and `evidence` for explanation, and do not turn prose matching into a stable API.
 
-Human output suggests next observations for unavailable logs, absent EDAC, and
-unsupported root filesystems. These suggestions are not remediation instructions
+Human output has source-specific next steps for unavailable logs and absent EDAC.
+Unsupported-root guidance appears in the finding summary and `skipped` explanation.
+These suggestions are not remediation instructions
 or permission grants. An agent must obtain any authorization needed for its own
 follow-up; Alibi itself remains read-only and performs no active network probes.
 
@@ -54,6 +55,4 @@ Alibi has per-command acquisition limits, but no universal total runtime bound
 (filesystem I/O and kernel scheduling can stall). Agent runners should impose
 an outer timeout appropriate to their environment and record timeout or missing
 output as unresolved evidence, never CLEAR. The example consumer has no host
-collection or remediation authority. Unsupported-root investigation appears in
-the finding summary/skipped explanation; the human source-specific next-step
-mechanism currently covers absent EDAC and unavailable kernel logs.
+collection or remediation authority.

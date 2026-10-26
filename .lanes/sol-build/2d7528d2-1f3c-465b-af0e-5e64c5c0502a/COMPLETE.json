@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "project": "alibi",
+  "lane": "sol-build",
+  "run": "2d7528d2-1f3c-465b-af0e-5e64c5c0502a",
+  "campaign": "20261026-sol-operator-reliability",
+  "source_revision": "6db99068a8f006d9985310872de52611ac8cec90",
+  "branch": "work/operator-reliability-20261026",
+  "time": "2026-10-26T20:12:55.621761+00:00",
+  "terminal_disposition": "implementation_complete_ready_for_independent_review",
+  "supersedes_for_product_acceptance": {
+    "path": ".lanes/sol-build/c517b38a-335a-41e1-9de6-ce0bfafa1301/COMPLETE.json",
+    "sha256": "87292c605ea3af04fe9484118e91b0ad4de4d7bbc898e766a26aae6227e551a8",
+    "disposition": "retained immutable history"
+  },
+  "tests": [
+    {
+      "command": "cargo fmt --check",
+      "result": "passed"
+    },
+    {
+      "command": "CARGO_TARGET_DIR=/tmp/alibi-operator-reliability-target cargo test",
+      "result": "passed",
+      "unit_tests": 141,
+      "receipt_golden_tests": 1,
+      "cli_tests": 3
+    },
+    {
+      "command": "CARGO_TARGET_DIR=/tmp/alibi-operator-reliability-target cargo clippy --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "CARGO_TARGET_DIR=/tmp/alibi-operator-reliability-target cargo build --release",
+      "result": "passed"
+    },
+    {
+      "command": "python3 tests/read_receipt_test.py",
+      "result": "passed",
+      "tests": 6
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "result": {
+    "description": "Follow-up propagates partial mount domains to usage acquisition, strengthens lazy IPv6 applicability matrix and defensive JSON CLI handling, and reconciles operator/agent documentation with observation limits. Receipt V2 contract unchanged.",
+    "pointers": [
+      {
+        "path": "docs/agent-interface.md",
+        "sha256": "503412ca1f0273555c6586d8cc4a8ab16db3f809ca576f9ad35ab48d84ab4f02"
+      },
+      {
+        "path": "docs/design.md",
+        "sha256": "3312499b0f3a1c488e7bdce38a11b4399b67c87ce191fb4fa00c7fa4d3821624"
+      },
+      {
+        "path": "docs/envelope.md",
+        "sha256": "3863459321d62b17a80431b47b36b108d55edaf0b2d5d328c1b3d68310c95b6d"
+      },
+      {
+        "path": "tests/read_receipt_test.py",
+        "sha256": "164165a4b980ef47e3b1d1ec1a4a2295b3aa0ff09fc42eca5cd854c6696a3bcc"
+      },
+      {
+        "path": "tests/golden/receipt_v2.json",
+        "sha256": "0696b30987fa2c3b8aa712a235497511aa8c20c48ac13441c825ce86103e45b9"
+      }
+    ]
+  },
+  "receipt_pointers": [
+    {
+      "path": "tests/golden/receipt_v2.json",
+      "sha256": "0696b30987fa2c3b8aa712a235497511aa8c20c48ac13441c825ce86103e45b9",
+      "kind": "fictional contract fixture; not live qualification"
+    }
+  ],
+  "caveats": [
+    "No new guest or bonded-host qualification, and no new human operator study.",
+    "No typed permission subtype or event-age metadata added to Receipt V2.",
+    "Consumer validation is bounded, not provenance or evaluator authentication.",
+    "Parent owns independent acceptance and temporary build storage disposition."
+  ],
+  "recommended_next": "Independent review of exact source revision and evidence, followed by separate acceptance record. This notice reports completion only; it is not acceptance."
+}

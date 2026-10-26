@@ -1,0 +1,176 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s
+     Running unittests src/lib.rs (/tmp/alibi-operator-reliability-target/debug/deps/alibi-5d75f42bc3cd180a)
+
+running 141 tests
+test collect::fsusage::tests::assembly_continues_after_a_mount_fails_completely ... ok
+test collect::fsusage::tests::bind_mounts_of_one_device_dedupe_to_one_filesystem ... ok
+test collect::fsusage::tests::contradictory_capacity_is_not_evidence_of_free_space ... ok
+test collect::fsusage::tests::boundary_whitespace_names_cannot_be_confused_with_df_padding ... ok
+test collect::fsusage::tests::assembly_preserves_bytes_when_inode_collection_or_parsing_fails ... ok
+test collect::fsusage::tests::df_identity_requires_both_exact_names_and_one_unambiguous_row ... ok
+test collect::fsusage::tests::disappearing_mount_cannot_acquire_parent_capacity_as_complete ... ok
+test collect::fsusage::tests::distinct_tmpfs_mounts_are_distinct_filesystems ... ok
+test collect::fsusage::tests::dimension_local_identity_loss_retains_supported_positive ... ok
+test collect::fsusage::tests::garbage_output_is_malformed ... ok
+test collect::fsusage::tests::literal_spaces_in_requested_names_are_preserved ... ok
+test collect::fsusage::tests::non_material_root_row_is_not_a_df_target ... ok
+test collect::fsusage::tests::parses_single_mount_df_output ... ok
+test collect::kernellog::tests::edac_journal_continuation_is_not_a_clean_negative ... ok
+test collect::fsusage::tests::partial_mount_domain_preserves_capacity_without_claiming_complete_usage ... ok
+test collect::kernellog::tests::explicit_representations_accept_benign_records ... ok
+test collect::kernellog::tests::edac_journal_positive_grammar_stays_on_first_physical_line ... ok
+test collect::kernellog::tests::journal_empty_and_aligned_multiline_messages_are_complete ... ok
+test collect::kernellog::tests::nonlog_empty_invalid_and_truncated_records_are_inadequate ... ok
+test collect::kernellog::tests::valid_positive_record_survives_malformed_neighbor_as_partial ... ok
+test collect::mounts::tests::detects_exact_ro_option_token ... ok
+test collect::mounts::tests::keeps_only_material_mounts ... ok
+test collect::mounts::tests::malformed_escapes_fail_without_utf8_boundary_panics ... ok
+test collect::mounts::tests::mount_mode_must_be_explicit_and_unambiguous ... ok
+test collect::mounts::tests::parse_mounts_rejects_malformed_line ... ok
+test collect::mounts::tests::parse_mounts_rejects_malformed_root_row ... ok
+test collect::mounts::tests::retained_writable_sibling_keeps_partial_read_only_view_bounded ... ok
+test collect::mounts::tests::squashfs_read_only_row_yields_no_mount_entry ... ok
+test collect::mounts::tests::malformed_neighbors_preserve_observations_without_inventing_sibling_absence ... ok
+test collect::mounts::tests::unescapes_octal_escaped_mountpoints ... ok
+test collect::mounts::tests::unsupported_root_row_is_retained_as_non_material ... ok
+test collect::net::tests::detects_v6_default_route ... ok
+test collect::net::tests::ipv4_reject_default_is_not_a_usable_default ... ok
+test collect::net::tests::ipv4_blackhole_default_is_not_a_usable_default ... ok
+test collect::net::tests::conntrack_io_status_distinguishes_absence_from_denial ... ok
+test collect::net::tests::ipv6_disable_requires_explicit_kernel_parameter ... ok
+test collect::net::tests::detects_v4_default_route ... ok
+test collect::net::tests::ipv6_null_entry_alone_is_not_a_usable_default ... ok
+test collect::net::tests::ipv6_null_entry_does_not_hide_a_real_default ... ok
+test collect::net::tests::malformed_ipv4_masks_fail_closed_even_after_a_default ... ok
+test collect::net::tests::malformed_route_flags_fail_closed ... ok
+test collect::net::tests::routes_only_read_disable_when_ipv6_table_is_missing ... ok
+test collect::net::tests::short_malformed_route_lines_are_skipped ... ok
+test collect::net::tests::topology_change_is_incomplete_evidence ... ok
+test collect::net::tests::routes_read_results_preserve_applicability_and_failures ... ok
+test collect::net::tests::failed_open_is_never_replaced_with_a_later_counter ... ok
+test collect::net::tests::zero_network_prefixes_are_not_default_routes ... ok
+test eval::kernel_scream::tests::clear_on_clean_fixture ... ok
+test eval::kernel_scream::tests::degraded_on_aer_line ... ok
+test eval::kernel_scream::tests::degraded_on_hardware_error_line ... ok
+test eval::kernel_scream::tests::kernel_scream_unknown_when_kernel_log_unavailable ... ok
+test eval::kernel_scream::tests::degraded_on_oops_line ... ok
+test eval::memrot::tests::clear_on_clean_fixture ... ok
+test eval::memrot::tests::degraded_on_corrected_errors ... ok
+test eval::memrot::tests::degraded_on_edac_log_line ... ok
+test eval::memrot::tests::degraded_on_uncorrected_errors ... ok
+test eval::memrot::tests::edac_banner_log_lines_produce_no_indication ... ok
+test eval::memrot::tests::partial_edac_preserves_positive_evidence ... ok
+test eval::memrot::tests::partial_edac_without_indication_cannot_clear ... ok
+test eval::memrot::tests::registration_is_not_a_memory_error_when_edac_is_absent ... ok
+test eval::memrot::tests::unknown_edac_form_blocks_clear_but_retains_supported_positives ... ok
+test eval::memrot::tests::unknown_when_edac_unsupported_and_log_clean ... ok
+test eval::network_choke_point::tests::clear_on_clean_fixture ... ok
+test eval::network_choke_point::tests::bond_master_and_slaves_remain_in_counter_domain ... ok
+test eval::network_choke_point::tests::complete_empty_interface_domain_is_not_applicable_even_if_routes_unavailable ... ok
+test eval::network_choke_point::tests::clear_with_skipped_when_conntrack_unsupported ... ok
+test eval::network_choke_point::tests::conntrack_is_a_required_role_when_present ... ok
+test eval::network_choke_point::tests::conntrack_pressure_denied_is_unknown_not_clear ... ok
+test eval::network_choke_point::tests::counter_reset_cannot_clear ... ok
+test collect::command_tests::complete_command_success_and_nonzero_exit_are_distinct ... ok
+test eval::network_choke_point::tests::degraded_on_repeated_link_down_events ... ok
+test eval::network_choke_point::tests::degraded_on_conntrack_pressure ... ok
+test eval::network_choke_point::tests::degraded_on_rx_error_delta ... ok
+test eval::network_choke_point::tests::degraded_without_any_default_route ... ok
+test eval::network_choke_point::tests::link_flap_storm_is_degraded_when_log_is_readable ... ok
+test eval::network_choke_point::tests::missing_required_counter_cannot_clear ... ok
+test eval::network_choke_point::tests::not_applicable_without_interfaces ... ok
+test eval::network_choke_point::tests::optional_packet_deltas_report_unavailable_and_reset ... ok
+test eval::network_choke_point::tests::partial_empty_interface_enumeration_is_unknown_not_not_applicable ... ok
+test eval::network_choke_point::tests::partial_route_tables_do_not_false_degrade_or_clear ... ok
+test eval::network_choke_point::tests::positive_counter_survives_another_counter_failure ... ok
+test eval::network_choke_point::tests::unknown_not_clear_when_kernel_log_is_denied ... ok
+test collect::net::tests::seek_reloads_and_overlong_counter_is_not_accepted_as_a_prefix ... ok
+test eval::network_choke_point::tests::privilege_loss_never_improves_the_verdict ... ok
+test eval::network_choke_point::tests::unknown_when_net_unavailable ... ok
+test collect::net::tests::retained_descriptors_do_not_reopen_a_replaced_name ... ok
+test eval::patterns::tests::boring_boot_lines_produce_no_matches ... ok
+test eval::patterns::tests::driver_link_down_forms_match_net_down ... ok
+test eval::patterns::tests::dmesg_flavored_lines_map_to_expected_tags ... ok
+test eval::patterns::tests::edac_banner_lines_are_excluded ... ok
+test eval::patterns::tests::edac_classification_uses_event_prefix_not_label_vocabulary ... ok
+test eval::patterns::tests::matches_are_capped_but_total_is_full_count ... ok
+test eval::patterns::tests::edac_error_lines_still_match ... ok
+test eval::patterns::tests::xfs_forced_shutdown_matches_both_filesystem_accusations ... ok
+test eval::silent_killer::tests::degraded_on_critical_space ... ok
+test eval::silent_killer::tests::clear_on_clean_fixture ... ok
+test eval::silent_killer::tests::degraded_on_read_only_ext4_mount ... ok
+test eval::silent_killer::tests::degraded_on_remount_read_only_log_line ... ok
+test eval::silent_killer::tests::degraded_on_xfs_forced_shutdown_log_line ... ok
+test eval::silent_killer::tests::degraded_on_inode_exhaustion ... ok
+test eval::silent_killer::tests::device_mounted_read_only_everywhere_is_an_indication ... ok
+test eval::silent_killer::tests::last_root_row_wins_when_root_is_over_mounted ... ok
+test eval::silent_killer::tests::malformed_root_mount_evidence_cannot_clear ... ok
+test eval::silent_killer::tests::partial_benign_usage_cannot_clear ... ok
+test eval::silent_killer::tests::partial_usage_preserves_positive_evidence ... ok
+test eval::silent_killer::tests::read_only_bind_view_of_writable_device_is_not_an_indication ... ok
+test eval::silent_killer::tests::root_missing_from_mount_table_cannot_clear ... ok
+test eval::silent_killer::tests::unknown_when_kernel_log_unavailable ... ok
+test eval::silent_killer::tests::supported_roots_preserve_existing_behavior ... ok
+test eval::silent_killer::tests::unsupported_root_filesystem_cannot_clear ... ok
+test eval::silent_killer::tests::unsupported_root_still_degrades_on_positive_evidence ... ok
+test eval::tests::base_verdict_clear_when_all_sources_ok ... ok
+test eval::tests::base_verdict_unknown_on_required_failure_only ... ok
+test collect::command_tests::nonwaitable_sigchld_dispositions_refuse_before_spawn ... ok
+test eval::tests::base_verdict_degraded_outranks_required_failure ... ok
+test eval::tests::kernel_only_collection_plan_excludes_network_sources ... ok
+test receipt::human::tests::clear_keeps_evidence_timing_and_scope_visible ... ok
+test receipt::human::tests::established_receipt_reports_mtti ... ok
+test receipt::human::tests::missing_record_and_evaluator_uncertainty_are_not_hidden ... ok
+test receipt::human::tests::unresolved_receipt_does_not_report_an_mtti_value ... ok
+test receipt::human::tests::default_human_preserves_failed_required_source_envelope ... ok
+test receipt::human::tests::default_degraded_output_preserves_all_canonical_indications ... ok
+test receipt::json::tests::escapes_special_characters ... ok
+test receipt::json::tests::absent_mtti_renders_as_null ... ok
+test receipt::json::tests::renders_scalar_types ... ok
+test receipt::tests::decision_latency_is_max_time_to_verdict ... ok
+test receipt::json::tests::receipt_contains_required_top_level_keys ... ok
+test receipt::tests::envelope_membership_comes_from_actual_collection_plan ... ok
+test receipt::tests::innocence_established_only_when_all_clear_or_not_applicable ... ok
+test receipt::tests::mtti_exists_only_when_aggregate_innocence_is_established ... ok
+test receipt::tests::mtti_requires_clear_finding_innocence_timestamp ... ok
+test receipt::human::tests::source_specific_next_observations_and_temporal_scope_are_visible ... ok
+test receipt::tests::overall_verdict_precedence ... ok
+test timeutil::tests::epoch_zero_is_unix_epoch ... ok
+test timeutil::tests::known_timestamp_converts ... ok
+test receipt::tests::retained_reports_stay_degraded_and_absent_edac_stays_unknown ... ok
+test receipt::human::tests::uncertainty_categories_preserve_canonical_receipt ... ok
+test receipt::tests::temporal_scope_survives_both_renderers_and_source_failure_details ... ok
+test collect::command_tests::invalid_utf8_and_output_cap_never_succeed ... ok
+test collect::command_tests::active_child_timeout_is_bounded ... ok
+test collect::command_tests::inherited_streams_are_inside_acquisition_deadline ... ok
+
+test result: ok. 141 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running unittests src/main.rs (/tmp/alibi-operator-reliability-target/debug/deps/alibi-d814524b37fcf063)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/operator_guide.rs (/tmp/alibi-operator-reliability-target/debug/deps/operator_guide-f66302ef20fa6793)
+
+running 1 test
+test guide_selects_existing_accusations_without_collecting_a_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/receipt_golden.rs (/tmp/alibi-operator-reliability-target/debug/deps/receipt_golden-d613e901832af09b)
+
+running 3 tests
+test default_human_exposes_canonical_envelope_without_verbose ... ok
+test receipt_v2_declares_receipt_version ... ok
+test receipt_v2_matches_golden ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests alibi
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

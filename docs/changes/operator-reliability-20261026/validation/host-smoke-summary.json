@@ -1,0 +1,49 @@
+{
+  "source_revision": "6db99068a8f006d9985310872de52611ac8cec90",
+  "binary_sha256": "3dfc6b18f126cb0360ff33deb86546da316f34071c2fec0d8f19f73c7eb07162",
+  "runs": [
+    {
+      "selection": "all",
+      "alibi_exit": 1,
+      "consumer_exit": 0,
+      "receipt_sha256": "6098f6070d509140c97528d48349ffb9848baec43ea345e03c33ccf6ad1fd5a4",
+      "verdict": "DEGRADED"
+    },
+    {
+      "selection": [
+        "kernel-scream"
+      ],
+      "alibi_exit": 0,
+      "consumer_exit": 0,
+      "receipt_sha256": "84abfd5eef67331200ccac86b7193543905fee53f154fabcfda9602b41d725fc",
+      "verdict": "CLEAR"
+    },
+    {
+      "selection": [
+        "silent-killer"
+      ],
+      "alibi_exit": 0,
+      "consumer_exit": 0,
+      "receipt_sha256": "698d244447942268bf034da0f67fe03715b4500cfe8b833ecf7aeafd9b13b57b",
+      "verdict": "CLEAR"
+    },
+    {
+      "selection": [
+        "memrot"
+      ],
+      "alibi_exit": 2,
+      "consumer_exit": 0,
+      "receipt_sha256": "e7b796043e809c760c8fe4a27f02f0612959b87f721381005a057afcc7eb1d22",
+      "verdict": "UNKNOWN"
+    },
+    {
+      "selection": [
+        "network-choke-point"
+      ],
+      "alibi_exit": 1,
+      "consumer_exit": 0,
+      "receipt_sha256": "a4b5efdf3c0e29a4574ca879492afd3f8a02bfff21241898bb389df7218648c9",
+      "verdict": "DEGRADED"
+    }
+  ]
+}

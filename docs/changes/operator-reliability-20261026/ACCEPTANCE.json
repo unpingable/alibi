@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "project": "alibi",
+  "reviewer": "coordinating agent, independent of Sol implementation; external static challenge by Claude Opus 5.5",
+  "source_revision": "6db99068a8f006d9985310872de52611ac8cec90",
+  "disposition": "ACCEPT_SCOPED_CHANGE",
+  "timestamp": "2026-10-26T20:13:34.711681+00:00",
+  "scope": "partial evidence, disabled IPv6 applicability, human explanations and bounded agent receipt reader",
+  "static_review": "opus-review-final.md",
+  "static_review_sha256": "fe0eedded0f2fae3d93c907eb5437db54f446cbea39de99c5ad77d8ff3360593",
+  "checks": "validation/checks.json",
+  "host_smoke": "validation/host-smoke-summary.json",
+  "limits": [
+    "No new guest fault qualification",
+    "No human or real incident usefulness study",
+    "No inherited baseline qualification",
+    "Receipt V2 unchanged; prose not machine enums",
+    "Live smoke checks do not exercise disabled IPv6 or real bonds"
+  ],
+  "recommended_next": "Integrate tested source; retain existing field investigation issue #3; no release publication"
+}

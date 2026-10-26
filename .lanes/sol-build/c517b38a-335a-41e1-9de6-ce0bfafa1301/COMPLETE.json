@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "project": "alibi",
+  "lane": "sol-build",
+  "run": "c517b38a-335a-41e1-9de6-ce0bfafa1301",
+  "campaign": "20261026-sol-operator-reliability",
+  "terminal_disposition": "implementation_complete_ready_for_independent_review",
+  "source_revision": "79a48c841413977a932ac1590a309aee384a84f4",
+  "branch": "work/operator-reliability-20261026",
+  "time": "2026-10-26T20:08:32.438105+00:00",
+  "tests": [
+    {
+      "command": "cargo fmt --check",
+      "result": "passed"
+    },
+    {
+      "command": "CARGO_TARGET_DIR=/tmp/alibi-operator-reliability-target cargo test",
+      "result": "passed",
+      "unit_tests": 139,
+      "receipt_golden_tests": 1,
+      "cli_tests": 3
+    },
+    {
+      "command": "CARGO_TARGET_DIR=/tmp/alibi-operator-reliability-target cargo clippy --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "CARGO_TARGET_DIR=/tmp/alibi-operator-reliability-target cargo build --release",
+      "result": "passed"
+    },
+    {
+      "command": "python3 tests/read_receipt_test.py",
+      "result": "passed",
+      "tests": 5
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "result": {
+    "description": "Conservative partial mount retention, explicit IPv6 disable applicability, bond regression coverage, scoped human uncertainty and timing guidance, bounded agent consumer and documentation. Receipt V2 contract preserved.",
+    "pointers": [
+      {
+        "path": "docs/agent-interface.md",
+        "sha256": "5051732b298b8095f5ca1cbc88f475adda46df3cfbe90c44cd380e55e79af93c"
+      },
+      {
+        "path": "docs/envelope.md",
+        "sha256": "26e426eadc6f14f8a41493c92ac3379da465543437dd3c525cdafd8122b320bf"
+      },
+      {
+        "path": "tests/read_receipt_test.py",
+        "sha256": "e75c12c21f99f39735a6ade3ccda49b81bff8bb69a73466f0f248e39cdc30400"
+      },
+      {
+        "path": "tests/golden/receipt_v2.json",
+        "sha256": "0696b30987fa2c3b8aa712a235497511aa8c20c48ac13441c825ce86103e45b9"
+      }
+    ]
+  },
+  "receipt_pointers": [
+    {
+      "path": "tests/golden/receipt_v2.json",
+      "sha256": "0696b30987fa2c3b8aa712a235497511aa8c20c48ac13441c825ce86103e45b9",
+      "kind": "pinned fictional contract fixture; not live host qualification"
+    }
+  ],
+  "caveats": [
+    "No new guest qualification or human operator study performed.",
+    "No typed permission-denial or event-age metadata added to Receipt V2.",
+    "Python consumer validates a bounded subset; it does not authenticate provenance or independently establish evaluator correctness.",
+    "Parent owns independent acceptance and temporary build storage disposition."
+  ],
+  "recommended_next": "Independent review of exact revision and evidence; separate acceptance record. This completion notice is not approval or acceptance."
+}

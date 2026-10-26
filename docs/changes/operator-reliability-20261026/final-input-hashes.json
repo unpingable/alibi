@@ -1,0 +1,20 @@
+{
+  "revision": "6db99068a8f006d9985310872de52611ac8cec90",
+  "files": {
+    "src/collect/mounts.rs": "fc859297bc5dab49bb3f8159dfb216b465569059438a6aa93ab817f399ff1869",
+    "src/collect/fsusage.rs": "3b8bbdcd95691f826f715dd97538d1fa4e6d89d55e1a76d72f5adc9ef6f2f58c",
+    "src/collect/net.rs": "26909b6983e616ff3da21d1bb5fc1cc20e8817d88034fdfe8acf21ede8513405",
+    "src/eval/silent_killer.rs": "430b783f6e4ac4f0b04edec546aa3d362de20037fb99f9a53a43715176a16603",
+    "src/eval/network_choke_point.rs": "8f138d61526361a729e65d863e9e61d55ecff81d0ffd4481c95ac0dcf9bb3fb6",
+    "src/eval/mod.rs": "8965b3f1ddc9fd3679f2900e8b27e89f1a48f025f9c4aed07ea841e41df1be0c",
+    "src/receipt/human.rs": "f08203ebfd0b9a46dcec337edf917962775e15befa9bab40e4019d9acf4f22d1",
+    "scripts/read-receipt.py": "aad1e75758a4cbc58de93591d152794f09a084ade80b37ec56b9f70a5804030b",
+    "tests/read_receipt_test.py": "164165a4b980ef47e3b1d1ec1a4a2295b3aa0ff09fc42eca5cd854c6696a3bcc",
+    "tests/receipt_golden.rs": "e3de521f6db1498758258b7f1fc838a1ca9bb592b5586ddbbdccadf0ea18fb47",
+    "tests/operator_guide.rs": "efd30c03a5f9987a3572489c5f5345dde00beb0da7f7aaffeedaa0763c5f0761",
+    "docs/agent-interface.md": "503412ca1f0273555c6586d8cc4a8ab16db3f809ca576f9ad35ab48d84ab4f02",
+    "docs/envelope.md": "3863459321d62b17a80431b47b36b108d55edaf0b2d5d328c1b3d68310c95b6d",
+    "docs/design.md": "3312499b0f3a1c488e7bdce38a11b4399b67c87ce191fb4fa00c7fa4d3821624",
+    ".github/workflows/ci.yml": "b752898729bbadb8a294912f0cc5ffeee3667470e4f58d114593c4f3854b75bc"
+  }
+}
