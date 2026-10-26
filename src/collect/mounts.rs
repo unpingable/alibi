@@ -260,7 +260,7 @@ tmpfs /run tmpfs rw,nosuid,nodev 0 0
     }
 
     #[test]
-    fn malformed_line_fails_whole_parse() {
+    fn parse_mounts_rejects_malformed_line() {
         assert!(parse_mounts("garbage line\n").is_err());
     }
 
@@ -309,7 +309,7 @@ tmpfs /run tmpfs rw,nosuid,nodev 0 0
     }
 
     #[test]
-    fn malformed_root_row_fails_whole_parse() {
+    fn parse_mounts_rejects_malformed_root_row() {
         assert!(parse_mounts("/dev/sda1 / ext4\nproc /proc proc rw 0 0\n").is_err());
     }
 }

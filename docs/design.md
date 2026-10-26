@@ -183,8 +183,12 @@ Registry order: `kernel-scream`, `silent-killer`, `memrot`, `network-choke-point
   the whole filesystem, so an `ro` mount whose device is also mounted `rw`
   elsewhere is a deliberate read-only bind view (snap-style content sharing) and
   is recorded as evidence, **not** an indication. Only a write-capable device with
-  no `rw` mount anywhere is an indication. squashfs/iso9660 and other
-  read-only-by-design fstypes are excluded. Also: kernel-log remount-ro /
+  no `rw` mount anywhere in a complete mount enumeration is an indication.
+  A partial enumeration can hide the writable sibling: retain the read-only
+  observation as ambiguous evidence, yielding UNKNOWN unless independent capacity
+  or log evidence supports DEGRADED. Usage collected from retained mount rows
+  inherits that partial domain and cannot claim complete acquisition.
+  squashfs/iso9660 and other read-only-by-design fstypes are excluded. Also: kernel-log remount-ro /
   fs-journal error / XFS forced-shutdown patterns (an XFS shutdown leaves the
   mount `rw`, so only the log witnesses it); space or inode free ≤ 5% on a
   material filesystem (critically low, not merely "high usage").
@@ -322,7 +326,7 @@ status, completeness, method/detail where available, `elapsed_ms`,
 CLI; this environment ships Rust 1.98 and no Go toolchain, so Rust produces the
 simpler artifact and testing story here. Standard library only: facts come from
 `/proc`/`sysfs` and standard tools; the receipt JSON is a small hand-rolled emitter;
-kernel-log matching is a literal-substring table. Single static binary, `cargo
+kernel-log matching is a literal-substring table. One standalone executable (published GNU builds dynamically linked), `cargo
 test` for everything, no dependency supply chain. Decision made; moving on.
 
 ## 10. Testing strategy

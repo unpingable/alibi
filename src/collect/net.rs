@@ -361,8 +361,12 @@ pub fn collect_routes() -> Source<RouteFacts> {
     let start = Instant::now();
     let v4_read = fs::read_to_string("/proc/net/route");
     let v6_read = fs::read_to_string("/proc/net/ipv6_route");
-    let disable = fs::read_to_string("/sys/module/ipv6/parameters/disable");
-    let mut source = routes_from_reads(v4_read, v6_read, disable, start.elapsed());
+    let mut source = routes_from_reads(
+        v4_read,
+        v6_read,
+        || fs::read_to_string("/sys/module/ipv6/parameters/disable"),
+        start.elapsed(),
+    );
     source.elapsed = start.elapsed();
     source
 }
@@ -370,7 +374,7 @@ pub fn collect_routes() -> Source<RouteFacts> {
 fn routes_from_reads(
     v4_read: std::io::Result<String>,
     v6_read: std::io::Result<String>,
-    disable: std::io::Result<String>,
+    disable: impl FnOnce() -> std::io::Result<String>,
     elapsed: Duration,
 ) -> Source<RouteFacts> {
     let mut issues = Vec::new();
@@ -394,7 +398,7 @@ fn routes_from_reads(
     let disabled = v6_read
         .as_ref()
         .is_err_and(|e| e.kind() == ErrorKind::NotFound)
-        && disable.is_ok_and(|value| ipv6_explicitly_disabled(&value));
+        && disable().is_ok_and(|value| ipv6_explicitly_disabled(&value));
     let v6_default = match v6_read {
         Ok(content) => match parse_v6_default(&content) {
             Ok(value) => Some(value),
@@ -597,6 +601,12 @@ eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
             (missing(), Ok("Y".into()), Verdict::Unknown, false),
             (missing(), missing(), Verdict::Unknown, false),
             (
+                missing(),
+                Err(std::io::Error::from(ErrorKind::PermissionDenied)),
+                Verdict::Unknown,
+                false,
+            ),
+            (
                 Err(std::io::Error::from(ErrorKind::PermissionDenied)),
                 Ok("1".into()),
                 Verdict::Unknown,
@@ -611,7 +621,7 @@ eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
             (Ok(String::new()), Ok("1".into()), Verdict::Clear, true),
         ] {
             let mut facts = crate::eval::fixtures::clean_facts();
-            facts.routes = routes_from_reads(Ok(v4.into()), v6, disable, Duration::ZERO);
+            facts.routes = routes_from_reads(Ok(v4.into()), v6, || disable, Duration::ZERO);
             assert_eq!(facts.routes.is_complete(), complete);
             assert!(facts.routes.get().unwrap().v4_default);
             assert_eq!(
@@ -624,7 +634,7 @@ eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
         let source = routes_from_reads(
             Err(std::io::Error::from(ErrorKind::PermissionDenied)),
             missing(),
-            Ok("1".into()),
+            || Ok("1".into()),
             Duration::ZERO,
         );
         assert!(!source.is_complete());
@@ -633,10 +643,64 @@ eth0\t0001A8C0\t00000000\t0001\t0\t0\t100\t00FFFFFF\t0\t0\t0
         let source = routes_from_reads(
             Ok(v4.into()),
             Ok("malformed".into()),
-            Ok("1".into()),
+            || Ok("1".into()),
             Duration::ZERO,
         );
         assert_eq!(source.status, Status::Malformed);
+    }
+
+    #[test]
+    fn routes_only_read_disable_when_ipv6_table_is_missing() {
+        use crate::eval::{Evaluator, Verdict};
+        for v6 in [
+            Ok(V6_GATEWAY_DEFAULT.into()),
+            Ok("malformed".into()),
+            Err(std::io::Error::from(ErrorKind::PermissionDenied)),
+        ] {
+            let source = routes_from_reads(
+                Ok(ROUTE_WITHOUT_DEFAULT.into()),
+                v6,
+                || panic!("must not read disable parameter for a present or denied table"),
+                Duration::ZERO,
+            );
+            let mut facts = crate::eval::fixtures::clean_facts();
+            let expected = if source.is_complete() {
+                Verdict::Clear
+            } else {
+                Verdict::Unknown
+            };
+            if source.is_complete() {
+                assert!(source.get().unwrap().v6_default);
+            }
+            facts.routes = source;
+            assert_eq!(
+                crate::eval::network_choke_point::NetworkChokePoint
+                    .evaluate(&facts)
+                    .verdict,
+                expected
+            );
+        }
+        for (v4, expected) in [
+            (Ok(ROUTE_WITHOUT_DEFAULT.into()), Verdict::Degraded),
+            (
+                Err(std::io::Error::from(ErrorKind::NotFound)),
+                Verdict::Unknown,
+            ),
+        ] {
+            let mut facts = crate::eval::fixtures::clean_facts();
+            facts.routes = routes_from_reads(
+                v4,
+                Err(std::io::Error::from(ErrorKind::NotFound)),
+                || Ok("1".into()),
+                Duration::ZERO,
+            );
+            assert_eq!(
+                crate::eval::network_choke_point::NetworkChokePoint
+                    .evaluate(&facts)
+                    .verdict,
+                expected
+            );
+        }
     }
 
     #[test]

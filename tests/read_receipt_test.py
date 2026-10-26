@@ -3,6 +3,7 @@ import copy
 import importlib.util
 import json
 import sys
+import subprocess
 from pathlib import Path
 import unittest
 
@@ -42,6 +43,16 @@ class ReceiptConsumerTests(unittest.TestCase):
             receipt[field] = value
             with self.assertRaises(ValueError):
                 CONSUMER.digest(receipt, sorted(CONSUMER.ACCUSATIONS))
+
+    def test_cli_rejects_unusable_and_deep_json_without_traceback(self):
+        for raw in ["[]", '"x"', "[" * 2000 + "]" * 2000,
+                    '{"tool":"alibi","tool":"other"}']:
+            completed = subprocess.run([sys.executable, str(ROOT / "scripts/read-receipt.py"),
+                "--expected", "kernel-scream"], input=raw, text=True,
+                capture_output=True, timeout=5, check=False)
+            self.assertEqual(completed.returncode, 2)
+            self.assertNotIn("Traceback", completed.stderr)
+            self.assertFalse(completed.stdout)
 
     def test_negative_controls(self):
         def set_field(path, value):

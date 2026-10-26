@@ -28,6 +28,7 @@ struct DfOutputs {
 
 pub fn collect(mounts: &Source<Vec<Mount>>) -> Source<Vec<FsUsage>> {
     let start = Instant::now();
+    let domain_failure = (!mounts.is_complete()).then(|| (mounts.status, mounts.failure_reason()));
     let mounts = match mounts.get() {
         Some(m) => m,
         None => {
@@ -48,7 +49,33 @@ pub fn collect(mounts: &Source<Vec<Mount>>) -> Source<Vec<FsUsage>> {
         })
         .collect();
 
-    assemble(outputs, start.elapsed())
+    assemble_in_domain(outputs, domain_failure, start.elapsed())
+}
+
+fn assemble_in_domain(
+    outputs: Vec<DfOutputs>,
+    domain_failure: Option<(Status, String)>,
+    elapsed: Duration,
+) -> Source<Vec<FsUsage>> {
+    let mut source = assemble(outputs, elapsed);
+    if let Some((status, reason)) = domain_failure {
+        if source.status == Status::Ok {
+            source.status = if status == Status::Ok {
+                Status::Unavailable
+            } else {
+                status
+            };
+        }
+        if source.value.is_some() {
+            source.completeness = crate::collect::Completeness::Partial;
+        }
+        let detail = format!("domain derived from partial mount table: {}", reason);
+        source.detail = Some(match source.detail.take() {
+            Some(previous) => format!("{}; {}", previous, detail),
+            None => detail,
+        });
+    }
+    source
 }
 
 fn assemble(outputs: Vec<DfOutputs>, elapsed: Duration) -> Source<Vec<FsUsage>> {
@@ -262,6 +289,41 @@ Filesystem                        1B-blocks        Used    Available Capacity Mo
 Filesystem                         Inodes   IUsed     IFree IUse% Mounted on
 /dev/mapper/vgubuntu-root       30531584  654321  29877263    3% /
 ";
+
+    #[test]
+    fn partial_mount_domain_preserves_capacity_without_claiming_complete_usage() {
+        use crate::eval::{Evaluator, Verdict};
+        for free in [3, 50] {
+            let mut facts = crate::eval::fixtures::clean_facts();
+            facts.fs_usage = assemble_in_domain(
+                vec![outputs(
+                    "/dev/sda1",
+                    "/",
+                    Ok(bytes_output("/dev/sda1", 100, free, "/")),
+                    Ok(inodes_output("/dev/sda1", 100, 90, "/")),
+                )],
+                Some((Status::Malformed, "line 2 malformed".into())),
+                Duration::ZERO,
+            );
+            assert_eq!(facts.fs_usage.status, Status::Malformed);
+            assert!(!facts.fs_usage.is_complete());
+            assert_eq!(facts.fs_usage.get().unwrap()[0].bytes.unwrap().free, free);
+            assert!(facts
+                .fs_usage
+                .failure_reason()
+                .contains("domain derived from partial mount table"));
+            assert_eq!(
+                crate::eval::silent_killer::SilentKiller
+                    .evaluate(&facts)
+                    .verdict,
+                if free == 3 {
+                    Verdict::Degraded
+                } else {
+                    Verdict::Unknown
+                }
+            );
+        }
+    }
 
     #[test]
     fn parses_single_mount_df_output() {

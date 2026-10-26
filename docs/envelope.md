@@ -207,7 +207,15 @@ All non-loopback interfaces, including bond masters and their slaves, remain in
 the network counter domain. Counters from different interfaces are not summed;
 a bond error or missing required counter cannot be hidden by clean slave counters.
 This checks observed errors and drops, not bond redundancy, LACP state, or remote
-reachability.
+reachability. Bond coverage here is a fixture regression, not qualification on
+a bonded host. A drop-counter delta is an observed drop, not proof of application
+impact: the [kernel statistics documentation](https://docs.kernel.org/6.9/networking/statistics.html)
+allows receive drops from unsupported protocols or link-layer filtering as well
+as resource pressure. Investigate interface/protocol configuration and independent
+error, capacity, and traffic evidence before attributing a drop-only DEGRADED
+finding to host damage. Inactive-backup delivery has a separate `rx_nohandler`
+statistic; this tool does not collect that statistic or infer its cause from
+`rx_dropped`.
 
 A missing IPv6 route table alone remains incomplete evidence. If the kernel's
 `/sys/module/ipv6/parameters/disable` explicitly reports IPv6 disabled (`1`), an absent IPv6 table is treated as not applicable, and the route source
@@ -220,7 +228,9 @@ remains malformed/partial and cannot establish CLEAR. A retained read-only mount
 without an observed writable sibling is preserved as ambiguous evidence: a
 malformed row could hide an intentional bind view's writable sibling. This
 observation alone cannot establish DEGRADED from incomplete enumeration. The detail identifies the
-bad row numbers. Malformed or missing root evidence also remains unresolved.
+bad row numbers. Filesystem usage from retained rows also remains partial because
+its domain came from incomplete mount enumeration, while valid measured values
+remain available. Malformed or missing root evidence also remains unresolved.
 Unsupported root filesystems require filesystem-native status and capacity
 investigation; rerunning Alibi with more privilege does not extend its model.
 

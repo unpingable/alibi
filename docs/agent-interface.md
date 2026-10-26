@@ -44,3 +44,16 @@ Human output suggests next observations for unavailable logs, absent EDAC, and
 unsupported root filesystems. These suggestions are not remediation instructions
 or permission grants. An agent must obtain any authorization needed for its own
 follow-up; Alibi itself remains read-only and performs no active network probes.
+
+The golden receipt used above is a pinned, fictional schema fixture. Its prose
+is illustrative and may differ from current wording; do not treat it as current
+host evidence or match its explanation strings. Digests retain hostnames and
+accusation details and remain sensitive; review them before sharing.
+
+Alibi has per-command acquisition limits, but no universal total runtime bound
+(filesystem I/O and kernel scheduling can stall). Agent runners should impose
+an outer timeout appropriate to their environment and record timeout or missing
+output as unresolved evidence, never CLEAR. The example consumer has no host
+collection or remediation authority. Unsupported-root investigation appears in
+the finding summary/skipped explanation; the human source-specific next-step
+mechanism currently covers absent EDAC and unavailable kernel logs.

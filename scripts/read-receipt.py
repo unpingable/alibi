@@ -106,6 +106,6 @@ if __name__ == "__main__":
     try:
         receipt = json.load(sys.stdin, object_pairs_hook=no_duplicate_keys)
         print(json.dumps(digest(receipt, args.expected.split(","), args.exit_status), indent=2))
-    except (ValueError, KeyError, TypeError) as error:
+    except (ValueError, KeyError, TypeError, RecursionError) as error:
         print(f"unusable receipt: {error}", file=sys.stderr)
         sys.exit(2)
